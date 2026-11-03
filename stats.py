@@ -67,9 +67,16 @@ def main():
     ap.add_argument("--figs", required=True)
     ap.add_argument("--a", default="adamw")
     ap.add_argument("--b", default="muon")
+    ap.add_argument("--lr_a", type=float, help="keep only optimizer-a runs at this matrix LR")
+    ap.add_argument("--lr_b", type=float, help="keep only optimizer-b runs at this matrix LR")
     args = ap.parse_args()
     os.makedirs(args.figs, exist_ok=True)
     runs = [r for r in load(args.results) if r["done"] is not None and r["done"]["status"] == "ok"]
+    for o, lr in ((args.a, args.lr_a), (args.b, args.lr_b)):
+        if lr is not None:
+            runs = [r for r in runs if r["cfg"]["opt"] != o or math.isclose(r["cfg"]["lr"], lr)]
+    keys = [(r["cfg"]["opt"], r["cfg"]["M"], r["cfg"]["seed"]) for r in runs]
+    assert len(keys) == len(set(keys)), "several runs per (optimizer, M, seed): pass --lr_a/--lr_b"
     by = {(r["cfg"]["opt"], r["cfg"]["M"], r["cfg"]["seed"]): r for r in runs}
     opts = [args.a, args.b]
     Ms = sorted({k[1] for k in by if k[1] > 0})
