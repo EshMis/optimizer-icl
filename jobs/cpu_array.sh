@@ -16,7 +16,7 @@ n=${NSLOTS:-1}
 export OMP_NUM_THREADS=$n MKL_NUM_THREADS=$n OPENBLAS_NUM_THREADS=$n
 line=$(grep -v '^#' "$TASKS" | grep . | sed -n "${SGE_TASK_ID}p")
 [[ -n "$line" ]] || { echo "no line $SGE_TASK_ID in $TASKS" >&2; exit 2; }
-name=$(basename "$TASKS" .txt)
+name=${OUTNAME:-$(basename "$TASKS" .txt)}   # OUTNAME lets extra seeds join an existing sweep
 echo "host=$(hostname) slots=$n task=$SGE_TASK_ID: $line"
 # shellcheck disable=SC2086
 exec $PY code/train.py $line --out "$ROOT/results/$name" --device cpu

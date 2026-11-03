@@ -45,14 +45,22 @@ def onset_step(r):
     return int(s[hit[0]]) if len(hit) else None
 
 
+def fade(r):
+    """Best new-task error over training, the step it happened, and final / best (1.0 = no fading)."""
+    s, y = series(r, "mse_ood_last")
+    i = int(np.argmin(y))
+    return y[i], int(s[i]), float(np.mean(y[-5:]) / y[i])
+
+
 def label(c):
     m = "inf" if c["M"] == 0 else f"2^{int(math.log2(c['M']))}" if c["M"] & (c["M"] - 1) == 0 else str(c["M"])
     return f"{c['opt']} lr={c['lr']:g}" + ("" if c["aux_lr"] == c["lr"] else f" aux={c['aux_lr']:g}") + f" M={m} seed={c['seed']}"
 
 
 def table(runs):
-    hdr = "| run | status | min | new-task err (rel) | pool-task err (rel to dMMSE) | alpha new | alpha pool | ICL onset step |"
-    out = [hdr, "|" + "---|" * 8]
+    hdr = ("| run | status | min | new-task err (rel) | pool-task err (rel to dMMSE) | alpha new | alpha pool "
+           "| ICL onset step | best new-task err @ step | fade (final/best) |")
+    out = [hdr, "|" + "---|" * 10]
     for r in sorted(runs, key=lambda r: (r["cfg"]["M"] or 1 << 40, r["cfg"]["opt"], r["cfg"]["lr"])):
         last, b = r["rows"][-1], r["base"]
         st = "running" if r["done"] is None else r["done"]["status"]
@@ -61,7 +69,8 @@ def table(runs):
         rel_id = last["mse_id_last"] / b["dmmse_id_mse_pos"][-1]
         on = onset_step(r)
         out.append(f"| {label(r['cfg'])} | {st} @{last['step']} | {mins} | {last['mse_ood_last']:.3f} ({rel_ood:.2f}x) | "
-                   f"{last['mse_id_last']:.3f} ({rel_id:.2f}x) | {last['alpha_ood']:.2f} | {last['alpha_id']:.2f} | {on if on is not None else 'never'} |")
+                   f"{last['mse_id_last']:.3f} ({rel_id:.2f}x) | {last['alpha_ood']:.2f} | {last['alpha_id']:.2f} | {on if on is not None else 'never'} | "
+                   f"{fade(r)[0]:.3f} @ {fade(r)[1]} | {fade(r)[2]:.2f} |")
     return "\n".join(out)
 
 
