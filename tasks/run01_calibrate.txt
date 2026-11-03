@@ -1,0 +1,18 @@
+# Run 1: LR calibration at M=inf + coarse pool-size scan. 30k steps, seed 0.
+--opt adamw --lr 1e-4 --aux_lr 1e-4 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 3e-4 --aux_lr 3e-4 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 1e-3 --aux_lr 1e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 3e-3 --aux_lr 3e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.005 --aux_lr 1e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.01 --aux_lr 1e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 1e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.04 --aux_lr 1e-3 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 3e-4 --M 0 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 1e-3 --aux_lr 1e-3 --M 8 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 1e-3 --M 8 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 1e-3 --aux_lr 1e-3 --M 128 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 1e-3 --M 128 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 1e-3 --aux_lr 1e-3 --M 2048 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 1e-3 --M 2048 --steps 30000 --seed 0 --pool_seed 0
+--opt adamw --lr 1e-3 --aux_lr 1e-3 --M 32768 --steps 30000 --seed 0 --pool_seed 0
+--opt muon --lr 0.02 --aux_lr 1e-3 --M 32768 --steps 30000 --seed 0 --pool_seed 0
