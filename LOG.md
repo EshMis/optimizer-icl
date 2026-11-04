@@ -20,14 +20,14 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Run 4b (Signum at a second learning rate, 60 runs) started 2026-11-03 20:10 PT, done around 22:00 PT. Run 3 (10x longer training) should finish tomorrow between about 04:00 and 12:00 PT. |
+| Stage | Runs 4 and 4b are done. Run 3 (10x longer training, 40 runs) should finish tomorrow between about 04:00 and 12:00 PT. |
 | Main finding | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
-| Why | **Both halves of Muon's update add memorisation** (Run 4). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon. SGD lands on AdamW. The orthogonalisation step alone moves the threshold about 0.7 doublings, at every learning rate tried. |
+| Why | **Both halves of Muon's update add memorisation** (Runs 4 and 4b). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon at both learning rates tried; SGD lands on AdamW. Orthogonalisation adds 0.5-0.7 doublings on top of Signum (6 of 6 seeds in every pairing). Like Muon's, and unlike AdamW's, Signum's threshold barely moves with learning rate. |
 | Open question | Is Muon just AdamW on a faster clock? Early evidence says no; Run 3 tests it directly. |
 
 ---
 
-## Run 4b: Signum at a second learning rate (started 2026-11-03 20:10 PT)
+## Run 4b: Signum at a second learning rate (2026-11-03, 20:10-22:05 PT)
 
 **What:** 60 runs: Signum at 3e-4, every pool size, seeds 0-5, paired with everything above.
 
@@ -39,7 +39,36 @@ more of it.
 **What the results will look like:** one more row in the Run 4 threshold table and paired
 tests against AdamW 3e-4 and Muon.
 
-**Result:** pending.
+**Result:** Signum's threshold hardly moves with learning rate, and Muon stays clearly above it.
+All 60 runs finished.
+
+| Optimizer | Threshold at the lower / higher learning rate |
+|---|---|
+| AdamW (1e-4 / 3e-4) | 28 / 41 tasks |
+| Signum (1e-4 / 3e-4) | 50 / 54 tasks |
+| Muon (0.005 / 0.01) | 80 / 77 tasks |
+
+Paired tests with Signum at 3e-4 (6 of 6 seeds agree and p = 0.031 in every row):
+
+| Comparison | Threshold moves by |
+|---|---|
+| Signum 3e-4 vs AdamW 3e-4 | +0.41 doublings |
+| Muon 0.005 vs Signum 3e-4 | +0.58 doublings |
+| Muon 0.01 vs Signum 3e-4 | +0.52 doublings |
+
+What this says:
+- **Orthogonalisation raises the threshold on its own, whichever learning rate Signum uses.**
+  Across all four Signum/Muon pairings, Muon is 0.5-0.7 doublings (1.4-1.6x more tasks) above
+  Signum.
+- **Equal step sizes also raise it**, by 0.4 doublings at a matched learning rate (3e-4 for both).
+- **AdamW is the odd one out.** For both optimizers that give equal-size steps (Signum and Muon),
+  the learning rate barely changes the threshold. For AdamW it changes it by 0.56 doublings.
+- **Caveat:** 3e-4 is the most Signum can take. With 2,048 or more tasks, and in one of six seeds
+  at 512, it trained and then blew up. Its threshold (near 54 tasks) comes from smaller pools,
+  where it trained normally. So Signum can't be pushed to a higher learning rate to close the
+  gap with Muon.
+
+Figure (now with Signum 3e-4 as the dashed green line): `reports/figs/run04/vs_pool_size_all.png`.
 
 ---
 
@@ -88,8 +117,8 @@ What this says:
   equalises them across the matrix's directions instead of its entries, and that alone raises the
   threshold by about 0.7 doublings (1.6x more tasks) at both Muon learning rates.
 - **Equal step sizes add some memorisation too, but how much depends on AdamW's learning
-  rate**: 0.84 doublings against AdamW 1e-4, only 0.29 against 3e-4. Run 4b runs Signum at
-  3e-4 to see whether Signum's threshold also moves with its learning rate.
+  rate**: 0.84 doublings against AdamW 1e-4, only 0.29 against 3e-4. Run 4b settles this:
+  at a matched learning rate (3e-4) the gap is 0.41 doublings.
 - **How Adam scales steps doesn't matter here.** Plain SGD with momentum behaves like AdamW
   1e-4 wherever it trains well. (SGD is weaker with 1,024 or more tasks, 1.2-1.4x ridge
   against AdamW's 1.1x, and one SGD seed trained badly with an infinite pool. Neither affects
