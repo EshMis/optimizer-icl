@@ -20,13 +20,55 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Run 2 (main pool-size sweep, 240 runs) running since 2026-11-03 12:33 PT; seeds 0-3 expected about 16:30 PT, seeds 4-5 after |
-| Known so far | Run 1, one seed: both optimizers reach the same quality on new tasks once tuned. At pool size 128 ICL appears and then fades in both, and Muon goes through both phases about 4x sooner. |
-| Next decision | Whether that early-rise, early-fade pattern holds across seeds and learning rates (Run 2) |
+| Stage | Run 3 (10x longer training, 40 runs) and Run 4a (calibration for two ablation optimizers, 14 runs) queued 2026-11-03 16:20 PT. Run 4a should be done by about 18:30 PT; Run 3 takes about 13-18 hours, so tomorrow morning to midday PT. |
+| Main finding so far | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
+| Open question | Is Muon just AdamW on a faster clock? The early evidence says no: memorisation speeds up 5-10x, ICL onset only about 2x. Run 3 tests this directly. |
+| Why (in progress) | Run 4 swaps in Signum and SGD to see which part of Muon causes it. |
 
 ---
 
-## Run 2: main pool-size sweep (started 2026-11-03 12:33 PT)
+## Run 4a: calibration for the ablation optimizers (queued 2026-11-03 16:20 PT)
+
+**What:** 14 runs, seed 0, 30,000 steps, pool size inf and 64. Signum (sign of the momentum: every
+update the same size per entry, but *not* orthogonalised) at 1e-4, 3e-4 and 1e-3. SGD with
+momentum (neither normalised nor orthogonalised) at 0.03, 0.1, 0.3 and 1.0.
+
+**Why:** Muon does two things to an update: it normalises its size, and it orthogonalises it
+(spreads it evenly over all directions). Signum keeps the first and drops the second. If
+Signum also memorises more than AdamW, orthogonalisation is not the cause.
+
+**What the results will look like:** the same table as Run 1. It gives one good learning rate per
+ablation optimizer for Run 4, the full pool-size sweep with those two optimizers added.
+
+**Result:** pending.
+
+---
+
+## Run 3: long training (queued 2026-11-03 16:20 PT)
+
+**What:** 40 runs of 300,000 steps (10x Run 2). Pool sizes 32, 64, 128, 256 and 1,024, near
+and above the thresholds. AdamW 3e-4 vs Muon 0.005, 4 seeds, paired as before.
+
+**Why:** Run 2 measured everything at 30,000 steps, but the threshold keeps moving during
+training (see the threshold-over-time figure under Run 2). Two explanations fit so far:
+- *Faster clock:* Muon is AdamW sped up. If so, AdamW given 5-10x more steps lands on
+  Muon's curve.
+- *Different end point:* Muon reaches more memorisation than AdamW ever does. If so,
+  AdamW's threshold levels off below Muon's.
+
+It also answers the proposal's question 2 in full: at each pool size, does ICL fade
+completely, and when?
+
+**What the results will look like:** the threshold-over-time figure extended to 300,000 steps
+for both optimizers; new-task error over training at each pool size, with each optimizer's peak
+and how far it fades; and a table of the step where each run's ICL is best and its final/best
+ratio.
+
+**Result:** pending.
+
+---
+
+## Run 2: main pool-size sweep (2026-11-03, 12:33-16:15 PT)
 
 **What:** 240 runs of 30,000 steps on Shirokane CPU nodes: pool sizes M = 16, 32, 64, 128, 256,
 512, 1024, 2048, 4096 and inf; 6 seeds; two learning rates per optimizer, AdamW at 1e-4 and 3e-4
@@ -49,7 +91,73 @@ batches, so every comparison is paired.
 rates, for at least one of: M*, onset step, or fade. If Run 1's pattern is real, Muon should
 peak and fade earlier at M = 64 to 256, and the error-vs-M curves should cross.
 
-**Result:** pending.
+**Result:** all 240 runs finished. Tables: `reports/run02_table.md` (per run) and
+`reports/figs/run02/a<AdamW lr>_m<Muon lr>/stats.md` (paired statistics for each of the four
+learning-rate pairings). Figures: `reports/figs/run02/`.
+
+**1. Muon needs more distinct tasks before in-context learning wins.** M* is the pool size
+where a model sits halfway between memorising and regressing (alpha = 0.5), measured at
+30,000 steps:
+
+| Setting | M* (tasks) | log2 M*, 6 seeds |
+|---|---|---|
+| AdamW 1e-4 | 28 | 4.79 (4.53-5.05) |
+| AdamW 3e-4 | 41 | 5.35 (5.25-5.56) |
+| Muon 0.005 | 80 | 6.33 (6.26-6.39) |
+| Muon 0.01 | 77 | 6.27 (6.06-6.44) |
+
+Muon's threshold is 0.9 to 1.5 doublings higher in all four pairings. That holds in every seed,
+with p = 0.031 each time (the smallest possible with 6 seeds) and 95% intervals far from zero.
+The seed ranges don't even overlap. Figure: `reports/figs/run02/a1e-4_m0.005/vs_pool_size.png`.
+
+**2. Between 16 and 1,024 tasks, Muon memorises more.** At every pool size in that range, Muon's
+error on pool tasks is lower and its error on new tasks is higher, in every seed. At 128 tasks,
+for example (AdamW 1e-4 vs Muon 0.005): new-task error is 1.9x ridge vs 4.9x ridge, and
+pool-task error is 2.2x the memorisation optimum vs 1.25x. With 2,048 or more tasks, or a fresh
+task every time, the two are equal to within 3%.
+
+**3. Muon starts in-context learning sooner,** 1.3-2.5x sooner at every pool size and every
+pairing (p = 0.031 throughout).
+
+**4. The threshold moves during training, and much faster for Muon.** Figure:
+`reports/figs/run02/threshold_over_time.png`. Around step 1,000 both optimizers have the same
+threshold, about 18 tasks: at that point ICL wins almost everywhere. After that, memorisation
+creeps up to larger pools. Muon's threshold starts climbing at about step 1,000 and reaches
+about 80 tasks by step 30,000. AdamW's stays flat until about step 5,000 and then climbs more
+slowly. To match where Muon is at step 6,000, AdamW 3e-4 needs about 30,000 steps (5x). AdamW
+1e-4 has not reached Muon's step-3,000 value even at 30,000 steps (more than 10x). Onset was only
+about 2x sooner, so memorisation sped up far more than ICL did. A single faster clock does
+not explain this, though only Run 3 can rule it out.
+
+**5. Learning rate matters for AdamW, not for Muon.** Muon at 0.005 and at 0.01 trace almost the
+same threshold curve. AdamW at 3e-4 memorises faster than at 1e-4. The gap survives even when
+AdamW gets its faster rate.
+
+**6. Muon spreads its weight changes over more directions.** Figure:
+`reports/figs/run02/a1e-4_m0.005/mechanism.png`. Measured by the effective rank of the change
+since initialisation (out of 128 for attention), Muon's attention changes sit around 55-90,
+against 20-50 for AdamW. Muon's MLP changes are near full rank. Partly this is just how Muon
+works: it equalises each update's singular values. What is more telling is that Muon's
+attention rank peaks around step 600 at every pool size and then falls, and it falls most where
+the model ends up doing ICL (to about 55 with fresh tasks) and less where it memorises (about 77
+with 64 tasks). That fits the picture that in-context regression needs a compact, low-rank
+circuit while memorising many tasks needs many directions. The 16-task pool breaks the order,
+so this is suggestive, not shown. Attention to the y values in the prompt doesn't separate the
+two strategies: a memoriser also has to read the labels to work out which pool task it is
+looking at.
+
+**What it means:** this answers the proposal's question 1. Muon is better at fitting its
+training distribution, and when that distribution is a finite pool of tasks, that means it
+memorises the pool sooner and keeps memorising larger pools. So in-context regression only
+wins at a larger task diversity. This matches the report that Muon learns rare associations
+better than Adam (Wang et al. 2025). Once the pool is too large to memorise, the two are
+indistinguishable. The fallback ladder in PLAN.md is not needed for the main question.
+Signum and SGD now serve the "why" question instead.
+
+**Caveats:** one model size and task dimension, CPU training (Newton-Schulz in fp32), and the
+threshold depends on the training budget, so the claim is "at the same number of steps". The
+0.5 cut-off for alpha is a convention, but the alpha-vs-pool-size curves are separated at
+every level, not just at 0.5.
 
 ---
 

@@ -1,0 +1,15 @@
+# Run 4a: LR calibration for the ablation optimizers (Signum = normalised, not orthogonalised; SGD-momentum = neither)
+--opt signum --lr 1e-4 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt signum --lr 3e-4 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt signum --lr 1e-3 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.03 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.1 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.3 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 1.0 --aux_lr 3e-4 --M 0 --seed 0 --pool_seed 0 --steps 30000
+--opt signum --lr 1e-4 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt signum --lr 3e-4 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt signum --lr 1e-3 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.03 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.1 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 0.3 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
+--opt sgdm --lr 1.0 --aux_lr 3e-4 --M 64 --seed 0 --pool_seed 0 --steps 30000
