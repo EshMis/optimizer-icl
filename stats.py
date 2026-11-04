@@ -71,7 +71,8 @@ def main():
     ap.add_argument("--lr_b", type=float, help="keep only optimizer-b runs at this matrix LR")
     args = ap.parse_args()
     os.makedirs(args.figs, exist_ok=True)
-    runs = [r for r in load(args.results) if r["done"] is not None and r["done"]["status"] == "ok"]
+    runs = [r for r in load(args.results) if r["done"] is not None and r["done"]["status"] == "ok"
+            and r["cfg"]["opt"] in (args.a, args.b)]
     for o, lr in ((args.a, args.lr_a), (args.b, args.lr_b)):
         if lr is not None:
             runs = [r for r in runs if r["cfg"]["opt"] != o or math.isclose(r["cfg"]["lr"], lr)]

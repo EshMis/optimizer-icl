@@ -20,14 +20,30 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Run 4 (Signum and SGD across every pool size, 120 runs) started 2026-11-03 18:10 PT and should finish around 20:00-21:00 PT. Run 3 (10x longer training, 40 runs) is about a sixth of the way through and should finish tomorrow between about 04:00 and 12:00 PT. |
-| Main finding so far | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
-| Open question | Is Muon just AdamW on a faster clock? The early evidence says no: memorisation speeds up 5-10x, ICL onset only about 2x. Run 3 tests this directly. |
-| Why (in progress) | One-seed hint from Run 4a: Signum, which normalises updates but does not orthogonalise them, memorises about as much as Muon, and SGD looks like AdamW. Run 4 checks this across 6 seeds and every pool size. |
+| Stage | Run 4b (Signum at a second learning rate, 60 runs) started 2026-11-03 20:10 PT, done around 22:00 PT. Run 3 (10x longer training) should finish tomorrow between about 04:00 and 12:00 PT. |
+| Main finding | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
+| Why | **Both halves of Muon's update add memorisation** (Run 4). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon. SGD lands on AdamW. The orthogonalisation step alone moves the threshold about 0.7 doublings, at every learning rate tried. |
+| Open question | Is Muon just AdamW on a faster clock? Early evidence says no; Run 3 tests it directly. |
 
 ---
 
-## Run 4: Signum and SGD across every pool size (started 2026-11-03 18:10 PT)
+## Run 4b: Signum at a second learning rate (started 2026-11-03 20:10 PT)
+
+**What:** 60 runs: Signum at 3e-4, every pool size, seeds 0-5, paired with everything above.
+
+**Why:** AdamW's threshold rises with its learning rate (28 tasks at 1e-4, 41 at 3e-4) and
+Muon's doesn't. Run 4 tried Signum at one learning rate only. If Signum's threshold rises at
+3e-4 too, the "equal step sizes" share of Muon's effect shrinks, and orthogonalisation carries
+more of it.
+
+**What the results will look like:** one more row in the Run 4 threshold table and paired
+tests against AdamW 3e-4 and Muon.
+
+**Result:** pending.
+
+---
+
+## Run 4: Signum and SGD across every pool size (2026-11-03, 18:10-20:00 PT)
 
 **What:** 120 runs: Signum at 1e-4 and SGD with momentum at 0.1 (the Run 4a picks), pool
 sizes 16 to 4,096 plus infinite, seeds 0-5, 30,000 steps. Each run uses the same task pool,
@@ -43,7 +59,49 @@ orthogonalisation is the cause.
 where each optimizer switches to ICL, per seed), paired tests of Signum and SGD against both
 AdamW and Muon, and the same error-versus-pool-size figure with four lines.
 
-**Result:** pending.
+**Result:** Signum lands between AdamW and Muon, and SGD lands on AdamW. All 120 runs finished.
+
+Pool size where each optimizer switches from memorising to in-context learning (6 seeds each):
+
+| Optimizer | What its update does | Threshold (tasks) |
+|---|---|---|
+| SGD 0.1 | neither | 30 |
+| AdamW 1e-4 / 3e-4 | per-entry scaling by gradient noise | 28 / 41 |
+| Signum 1e-4 | every entry gets the same size step | 50 |
+| Muon 0.005 / 0.01 | same size step in every direction of the matrix (orthogonalised) | 80 / 77 |
+
+Paired tests, seed by seed (6 of 6 seeds agree and p = 0.031 in every row; a "doubling"
+is a 2x change in the threshold):
+
+| Comparison | Threshold moves by |
+|---|---|
+| Signum vs AdamW 1e-4 | +0.84 doublings |
+| Signum vs AdamW 3e-4 | +0.29 doublings |
+| Muon 0.005 vs Signum | +0.70 doublings |
+| Muon 0.01 vs Signum | +0.64 doublings |
+| SGD vs AdamW 1e-4 | +0.10 doublings (p = 0.16, no real difference) |
+
+![threshold and errors against pool size for all four optimizers](reports/figs/run04/vs_pool_size_all.png)
+
+What this says:
+- **The orthogonalisation is a cause on its own.** Signum already equalises step sizes. Muon
+  equalises them across the matrix's directions instead of its entries, and that alone raises the
+  threshold by about 0.7 doublings (1.6x more tasks) at both Muon learning rates.
+- **Equal step sizes add some memorisation too, but how much depends on AdamW's learning
+  rate**: 0.84 doublings against AdamW 1e-4, only 0.29 against 3e-4. Run 4b runs Signum at
+  3e-4 to see whether Signum's threshold also moves with its learning rate.
+- **How Adam scales steps doesn't matter here.** Plain SGD with momentum behaves like AdamW
+  1e-4 wherever it trains well. (SGD is weaker with 1,024 or more tasks, 1.2-1.4x ridge
+  against AdamW's 1.1x, and one SGD seed trained badly with an infinite pool. Neither affects
+  the threshold, which sits near 30 tasks.)
+- **The weight-change measure from Run 2 lines up, with one exception.** At pool sizes where
+  the models memorise, the spread of each optimizer's weight changes (effective rank of the
+  change, attention / MLP) goes AdamW 45-53 / 78-86, Signum 62-65 / 86-90, Muon 66-77 / 109-114.
+  That is the same order as the thresholds. SGD breaks it: its spread is the lowest of all
+  (30-37 / 36-50), yet it memorises like AdamW. So spreading the update over more directions
+  goes with more memorisation, but it is not the whole explanation.
+
+Full tables: `reports/run04_compare.md` and `reports/figs/run04/*/stats.md`.
 
 ---
 
