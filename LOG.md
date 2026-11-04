@@ -20,14 +20,34 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Run 3 (10x longer training, 40 runs) and Run 4a (calibration for two ablation optimizers, 14 runs) queued 2026-11-03 16:20 PT. Run 4a should be done by about 18:30 PT; Run 3 takes about 13-18 hours, so tomorrow morning to midday PT. |
+| Stage | Run 4 (Signum and SGD across every pool size, 120 runs) started 2026-11-03 18:10 PT and should finish around 20:00-21:00 PT. Run 3 (10x longer training, 40 runs) is about a sixth of the way through and should finish tomorrow between about 04:00 and 12:00 PT. |
 | Main finding so far | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
 | Open question | Is Muon just AdamW on a faster clock? The early evidence says no: memorisation speeds up 5-10x, ICL onset only about 2x. Run 3 tests this directly. |
-| Why (in progress) | Run 4 swaps in Signum and SGD to see which part of Muon causes it. |
+| Why (in progress) | One-seed hint from Run 4a: Signum, which normalises updates but does not orthogonalise them, memorises about as much as Muon, and SGD looks like AdamW. Run 4 checks this across 6 seeds and every pool size. |
 
 ---
 
-## Run 4a: calibration for the ablation optimizers (queued 2026-11-03 16:20 PT)
+## Run 4: Signum and SGD across every pool size (started 2026-11-03 18:10 PT)
+
+**What:** 120 runs: Signum at 1e-4 and SGD with momentum at 0.1 (the Run 4a picks), pool
+sizes 16 to 4,096 plus infinite, seeds 0-5, 30,000 steps. Each run uses the same task pool,
+starting weights and batches as the matching Run 2 run, so all four optimizers can be paired
+seed by seed.
+
+**Why:** to find which part of Muon makes it memorise more. Muon normalises each update and
+orthogonalises it. Signum keeps the normalisation only, SGD keeps neither. If Signum's
+threshold sits with Muon's, normalisation is enough; if it sits with AdamW's,
+orthogonalisation is the cause.
+
+**What the results will look like:** the Run 2 threshold table with two more rows (pool size
+where each optimizer switches to ICL, per seed), paired tests of Signum and SGD against both
+AdamW and Muon, and the same error-versus-pool-size figure with four lines.
+
+**Result:** pending.
+
+---
+
+## Run 4a: calibration for the ablation optimizers (2026-11-03, 16:20-18:05 PT)
 
 **What:** 14 runs, seed 0, 30,000 steps, pool size inf and 64. Signum (sign of the momentum: every
 update the same size per entry, but *not* orthogonalised) at 1e-4, 3e-4 and 1e-3. SGD with
@@ -40,7 +60,36 @@ Signum also memorises more than AdamW, orthogonalisation is not the cause.
 **What the results will look like:** the same table as Run 1. It gives one good learning rate per
 ablation optimizer for Run 4, the full pool-size sweep with those two optimizers added.
 
-**Result:** pending.
+**Result:** both optimizers have a learning rate that trains as well as tuned AdamW and Muon.
+
+With an infinite pool (every prompt a fresh task):
+
+| Optimizer | Learning rate | Error on new tasks (vs ridge) |
+|---|---|---|
+| Signum | 1e-4 | 0.578 (1.07x) |
+| Signum | 3e-4 | 0.690 (1.28x) |
+| Signum | 1e-3 | trained to 0.63, then diverged after step 16,500 |
+| SGD | 0.03 | 0.602 (1.11x) |
+| SGD | 0.1 | 0.587 (1.09x) |
+| SGD | 0.3, 1.0 | never learned |
+| *Run 2, same seed:* AdamW 1e-4 / Muon 0.005 | | *1.08x / 1.08x* |
+
+Picks for Run 4: **Signum 1e-4, SGD 0.1.**
+
+A first look at the "why" question from the 64-task pool (one seed, so a hint and nothing more):
+
+| Optimizer | Error on new tasks (vs ridge) | Error on pool tasks (vs dMMSE) |
+|---|---|---|
+| AdamW 1e-4 | 3.5x | 1.87x |
+| SGD 0.1 | 3.7x | 1.74x |
+| Signum 1e-4 | 6.4x | 1.23x |
+| Muon 0.005 | 7.7x | 1.08x |
+
+Signum memorises nearly as much as Muon, and SGD behaves like AdamW. If Run 4 confirms this,
+orthogonalisation is not what makes Muon memorise. The cause would be something Muon and
+Signum share and AdamW does not: every part of the weight matrix gets a step of the same size,
+however small or noisy its gradient. Adam shrinks steps where the gradient is noisy. Figures:
+`reports/figs/run04a/`.
 
 ---
 
