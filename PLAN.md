@@ -91,3 +91,37 @@ In order of cost. Each is a real result, not just a rescue.
 4. **A different task where the ICL vs memorisation competition is sharper**: in-context
    classification with Gaussian-mixture labels (Reddy 2023; Chan et al. 2022), where
    transient ICL is robust and in-weights vs in-context learning compete directly.
+
+## Run 5 design (fixed 2026-11-11, before any Run 5 result)
+
+Run 5 tests whether the three findings survive tuning: (1) at a matched number of steps Muon's
+threshold M\* is higher than AdamW's; (2) Muon peaks and fades sooner; (3) with enough tasks,
+both need the same number of examples. All runs use 30,000 steps on Shirokane CPU nodes, the
+same hardware as Run 2, with pool sizes 16, 32, 64, 128, 256, 512, 1,024 and infinite, and
+seeds 0-5. Non-matrix parameters stay on AdamW 3e-4. Seed s gives the same pool, initial weights
+and batches as Run 2's seed s, so every new cell pairs with Run 2.
+
+| Batch | Cells | Runs | Why this order |
+|---|---|---|---|
+| 5a | AdamW 1e-3, Muon 0.0025 | 96 | These are the steps that could close the gap. AdamW's threshold rises with its learning rate (28 tasks at 1e-4, 41 at 3e-4), so one step up is the most likely way for AdamW to reach Muon. |
+| 5b | Weight decay: AdamW 3e-4 with wd 0.1, Muon 0.005 with wd 0.006 | 96 | Both apply decay as `w *= 1 - lr*wd`, so equal `wd` would shrink Muon's weights 17x faster. These values give both the same shrink per step (3e-5). Weight decay is the known lever on transience (Singh et al. 2023). |
+| 5c | AdamW 3e-5, Muon 0.02 | 96 | These are the steps that should widen the gap. They complete the ±1 step grid but are unlikely to change a conclusion. |
+
+**Which runs count.** A setting is used only if its infinite-pool runs end within 1.3x of ridge
+(Run 1's AdamW 1e-3 reached 1.18x). A setting that fails this is reported as untrainable at that
+learning rate, not as evidence either way. The same applies to Signum 3e-4's divergence (Run 4b).
+
+**Decision rules.**
+1. *Threshold gap survives tuning* if Muon's lowest-threshold learning rate is still above
+   AdamW's highest-threshold learning rate in 6 of 6 seeds (paired sign-flip p = 0.031). The
+   comparison is among all trainable settings in {AdamW 3e-5, 1e-4, 3e-4, 1e-3} x {Muon 0.0025,
+   0.005, 0.01, 0.02}. If AdamW 1e-3 reaches Muon's threshold, the finding becomes "Muon behaves
+   like AdamW at a higher learning rate", which fits the faster-clock reading from Run 3. The
+   finding is reported that way, without dropping it.
+2. *Gap survives weight decay* if, with matched weight decay, Muon's threshold is above AdamW's
+   in 6 of 6 seeds.
+3. *Weight decay and fading*: at pool sizes 64-256, the change in fading (final / best new-task
+   error) from adding weight decay, per optimizer, paired against Run 2's no-decay runs. There is
+   no pass/fail rule here; it is reported as measured.
+4. *Examples needed* (question 3) and ICL onset are recomputed for every new cell. They are
+   reported but don't drive a decision.

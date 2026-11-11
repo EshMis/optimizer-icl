@@ -29,6 +29,42 @@ How to read the numbers:
 
 ---
 
+## Run 5: robustness to learning rate and weight decay (planned 2026-11-11, not launched)
+
+**What:** 288 runs of 30,000 steps in three batches, each covering every pool size from 16 to
+1,024 plus infinite, with seeds 0-5. Every run is paired seed by seed with Run 2.
+- **5a (first):** AdamW one learning-rate step up (1e-3) and Muon one step down (0.0025).
+- **5b:** weight decay for both, set so each optimizer's weights shrink by the same amount per
+  step: AdamW 3e-4 with 0.1, Muon 0.005 with 0.006. Equal settings would shrink Muon's weights
+  17x faster, because the shrink scales with the learning rate.
+- **5c:** AdamW one step down (3e-5) and Muon one step up (0.02).
+
+**Why:** the main finding compares two hand-picked learning rates per optimizer. AdamW's
+threshold rises with its learning rate (28 tasks at 1e-4, 41 at 3e-4), so the obvious objection
+is that a higher AdamW learning rate would catch up with Muon. 5a tests that directly, which is
+why it runs first. Weight decay is the standard lever on whether in-context learning fades, and
+Muon is normally run with it.
+
+**What would change the story:** the decision rules are fixed in PLAN.md ("Run 5 design")
+before any result.
+- If AdamW 1e-3 still sits below Muon 0.0025 in 6 of 6 seeds, the threshold gap survives
+  tuning.
+- If AdamW 1e-3 catches up, the finding becomes "Muon acts like AdamW at a higher learning
+  rate". That fits Run 3's faster-clock reading and is still reportable.
+- With weight decay, the question is whether the gap holds (6 of 6 seeds) and whether decay
+  slows the fade for either optimizer.
+
+**What the results will look like:** the Run 2 threshold table with up to eight learning rates
+instead of four, a paired test for each pairing, and a version of the threshold-against-pool-size
+figure with every learning rate on it. A second table will show weight decay against Run 2's
+matching runs.
+
+**Cost:** at Run 2's pace (about 80 minutes per run, 70 at a time), each batch takes 2-3 hours.
+On 2026-11-11 the cluster's CPU queue was 93% full, with room for only about 5 runs at once, so a
+batch launched then could take a day.
+
+---
+
 ## Question 3: how many in-context examples each model needs (analysis, 2026-11-11)
 
 **What:** no new training. The error on new tasks at every context length (0 to 15 examples in
