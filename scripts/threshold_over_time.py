@@ -21,7 +21,8 @@ groups = defaultdict(lambda: defaultdict(dict))   # (opt, lr) -> seed -> M -> {s
 for r in runs:
     c = r["cfg"]
     groups[(c["opt"], c["lr"])][c["seed"]][c["M"]] = {row["step"]: row["alpha_ood"] for row in r["rows"]}
-steps = sorted(next(iter(next(iter(groups.values())).values()))[16].keys())
+first = next(iter(next(iter(groups.values())).values()))
+steps = sorted(first[min(first)].keys())
 steps = [s for s in steps if s >= 300]
 fig, ax = plt.subplots(figsize=(6.5, 4))
 summary = {}
@@ -42,11 +43,12 @@ for (o, lr), seeds in sorted(groups.items()):
 ax.set_xscale("log")
 ax.set_xlabel("training step")
 ax.set_ylabel("log2 M* (pool size where alpha = 0.5)")
-ax.set_title("Task-diversity threshold over training (mean ± s.e., 6 seeds)")
+n_seeds = len(next(iter(groups.values())))
+ax.set_title(f"Task-diversity threshold over training (mean ± s.e., {n_seeds} seeds)")
 ax.legend(fontsize=8)
 fig.tight_layout()
 fig.savefig(sys.argv[2] + "/threshold_over_time.png", dpi=130)
-show = [s for s in steps if s in (300, 1000, 3000, 6000, 9000, 15000, 21000, 30000)] or steps[::10]
+show = [s for s in steps if s in (300, 1000, 3000, 6000, 9000, 15000, 21000, 30000, 60000, 105000, 150000, 210000, 300000)] or steps[::10]
 print("step " + " ".join(f"{s:>7}" for s in show))
 for k, d in summary.items():
     print(f"{k[0]}:{k[1]:g}".ljust(13) + " ".join(f"{d[s]:7.2f}" for s in show))

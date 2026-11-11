@@ -20,10 +20,11 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Runs 4 and 4b are done. Run 3 (10x longer training, 40 runs) should finish tomorrow between about 04:00 and 12:00 PT. |
-| Main finding | **Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). It also starts ICL 1.3-2.5x sooner. With 2,048 or more tasks the two end up the same. |
-| Why | **Both halves of Muon's update add memorisation** (Runs 4 and 4b). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon at both learning rates tried; SGD lands on AdamW. Orthogonalisation adds 0.5-0.7 doublings on top of Signum (6 of 6 seeds in every pairing). Like Muon's, and unlike AdamW's, Signum's threshold barely moves with learning rate. |
-| Open question | Is Muon just AdamW on a faster clock? Early evidence says no; Run 3 tests it directly. |
+| Stage | Runs 1-4 are done, Run 3 analysed 2026-11-11. Proposal questions 1 and 2 are answered. Question 3 (how many in-context examples each model needs) is not analysed yet; the data is already recorded. |
+| Main finding | **At the same number of training steps, Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). With 2,048 or more tasks the two end up the same. |
+| Long training (Run 3) | **Muon is roughly AdamW on a 4x faster clock.** Over 300,000 steps both thresholds keep rising at the same pace, and AdamW reaches each threshold about 4x later than Muon. In-context learning fades at every pool size for both optimizers. Muon peaks 3-4.5x sooner and starts fading 4-5x sooner (4 of 4 seeds). |
+| Why | **Both halves of Muon's update speed up memorisation** (Runs 4 and 4b). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon at both learning rates tried; SGD lands on AdamW. Orthogonalisation adds 0.5-0.7 doublings on top of Signum (6 of 6 seeds in every pairing). Like Muon's, and unlike AdamW's, Signum's threshold barely moves with learning rate. |
+| Open questions | Why ICL onset speeds up only 1.3-2.5x while memorisation speeds up about 4x. And proposal question 3. |
 
 ---
 
@@ -180,7 +181,7 @@ however small or noisy its gradient. Adam shrinks steps where the gradient is no
 
 ---
 
-## Run 3: long training (queued 2026-11-03 16:20 PT)
+## Run 3: long training (2026-11-03 16:20 PT to 2026-11-04 21:46 PT)
 
 **What:** 40 runs of 300,000 steps (10x Run 2). Pool sizes 32, 64, 128, 256 and 1,024, near
 and above the thresholds. AdamW 3e-4 vs Muon 0.005, 4 seeds, paired as before.
@@ -200,7 +201,68 @@ for both optimizers; new-task error over training at each pool size, with each o
 and how far it fades; and a table of the step where each run's ICL is best and its final/best
 ratio.
 
-**Result:** pending.
+**Result (analysed 2026-11-11):** Muon behaves like AdamW running about 4x faster. All 40 runs
+finished; they ended on 2026-11-04 but weren't analysed until a week later. Tables:
+`reports/run03_table.md` (per run) and `reports/run03_dynamics.md` (clock test and fading).
+Figures: `reports/figs/run03/`.
+
+**1. Faster clock, not a different end point.** The threshold keeps rising for both optimizers
+all the way to 300,000 steps, at about the same pace: 1.5-1.6 doublings for every 10x more
+steps. Neither one levels off. For each of AdamW's steps we found the step at which Muon had
+already reached the same threshold:
+
+| AdamW at step | AdamW's threshold (tasks) | Muon got there by step | AdamW needed this many times more steps |
+|---|---|---|---|
+| 30,000 | 43 | 5,300 | 5.7x |
+| 60,000 | 61 | 14,300 | 4.3x |
+| 150,000 | 90 | 42,500 | 3.8x |
+| 300,000 | 127 | 79,900 | 4.2x |
+
+From about 45,000 steps on, the factor holds at roughly 4 (individual seeds range from 2.4x to 6.2x). It is
+higher earlier on, around 6x, but there AdamW's threshold sits close to the smallest pool size
+in this run (32), so those early numbers are less reliable. Figure:
+`reports/figs/run03/clock_test.png`. In it, AdamW's curve shifted left by 4.5x lands on top
+of Muon's.
+
+At 300,000 steps the gap is still there: Muon's threshold is about 225 tasks against AdamW's
+127, 0.83 doublings higher in 4 of 4 seeds. That is close to Run 2's 0.98 doublings at 30,000 steps. Muon's
+figure is less exact because this run has no 512-task pool, so its threshold is interpolated
+between 256 and 1,024.
+
+**2. In-context learning always fades, and Muon gets there sooner.** This is the proposal's
+question 2. At every pool size, from 32 to 1,024 tasks, both optimizers learn to regress from
+the prompt, peak, and then lose it to memorisation. Neither holds its peak.
+
+| Pool size | Step of best new-task error, AdamW / Muon | New-task error 10% above its best by step, AdamW / Muon | Final new-task error vs ridge, AdamW / Muon |
+|---|---|---|---|
+| 32 | 2,400 / 660 | 4,700 / 940 | 12.1x / 12.6x |
+| 64 | 2,500 / 860 | 5,500 / 1,300 | 10.8x / 10.8x |
+| 128 | 5,300 / 1,300 | 9,500 / 2,500 | 6.2x / 8.6x |
+| 256 | 11,800 / 2,600 | 22,000 / 4,500 | 3.6x / 5.2x |
+| 1,024 | 35,700 / 10,200 | 120,000 / 22,800 | 1.6x / 2.1x |
+
+- Muon's in-context learning peaks 3-4.5x sooner and starts fading 4-5x sooner, in 4 of 4
+  seeds at every pool size. These are about the same factors as the threshold's clock.
+- Even with 1,024 tasks the fade arrives eventually: AdamW peaks near 1.08x ridge at about
+  36,000 steps and ends at 1.6x.
+- With 128 or more tasks, Muon has faded further by step 300,000 (4 of 4 seeds). That is what
+  a model about 4x further along the same path would show.
+- Most runs are still fading at 300,000 steps. Final error is up to 1.3x what it was at
+  150,000 steps.
+
+**What it means:** this settles the open question from Run 2. Muon doesn't reach more
+memorisation than AdamW can. It gets there sooner: from about 45,000 steps on, roughly 4x
+sooner. So "Muon needs 2-3x more tasks before in-context learning wins" holds at a matched
+number of training steps. Give AdamW about 4x the steps and it memorises just as much. Run 2's
+note that a faster clock "does not explain" the gap came from the first 6,000 steps, where
+the factor is bigger and the measurement is shakier. Over the long run, one clock explains it.
+Two things still don't fit that clock. ICL onset is only 1.3-2.5x sooner with Muon (Run 2), so
+the clock that speeds up memorisation runs faster than the one that speeds up regression. The
+Run 4 ablations also still stand, with a new reading: orthogonalisation and equal step sizes
+are what make memorisation *faster*.
+
+**Caveats:** 4 seeds, so the smallest possible p is 0.125. The "4 of 4 seeds" counts carry
+the result. One learning-rate pair (AdamW 3e-4, Muon 0.005), one model size.
 
 ---
 
