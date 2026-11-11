@@ -20,11 +20,77 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Runs 1-4 are done, Run 3 analysed 2026-11-11. Proposal questions 1 and 2 are answered. Question 3 (how many in-context examples each model needs) is not analysed yet; the data is already recorded. |
+| Stage | Runs 1-4 are done and analysed (Run 3 and question 3 on 2026-11-11). All three proposal questions are answered. Left: the robustness run (Run 5 in PLAN.md), the mechanism follow-ups, and the write-up. |
+| Examples needed (question 3) | **With enough tasks (2,048 or more), the optimizer makes no difference**: with 15 examples, both models are as accurate as optimal regression with about 14. With fewer tasks, Muon's models get less out of each example (at 256 tasks: worth 8 examples vs AdamW's 12.5; 6 of 6 seeds, p = 0.031). |
 | Main finding | **At the same number of training steps, Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). With 2,048 or more tasks the two end up the same. |
 | Long training (Run 3) | **Muon is roughly AdamW on a 4x faster clock.** Over 300,000 steps both thresholds keep rising at the same pace, and AdamW reaches each threshold about 4x later than Muon. In-context learning fades at every pool size for both optimizers. Muon peaks 3-4.5x sooner and starts fading 4-5x sooner (4 of 4 seeds). |
 | Why | **Both halves of Muon's update speed up memorisation** (Runs 4 and 4b). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon at both learning rates tried; SGD lands on AdamW. Orthogonalisation adds 0.5-0.7 doublings on top of Signum (6 of 6 seeds in every pairing). Like Muon's, and unlike AdamW's, Signum's threshold barely moves with learning rate. |
-| Open questions | Why ICL onset speeds up only 1.3-2.5x while memorisation speeds up about 4x. And proposal question 3. |
+| Open questions | Why ICL onset speeds up only 1.3-2.5x while memorisation speeds up about 4x. |
+
+---
+
+## Question 3: how many in-context examples each model needs (analysis, 2026-11-11)
+
+**What:** no new training. The error on new tasks at every context length (0 to 15 examples in
+the prompt) was already recorded at every evaluation. This analysis compares it with ridge
+regression on the same prompts, at the end of Run 2 (all optimizers, 6 seeds) and over
+training in Run 3. Script: `scripts/examples_needed.py`. Tables:
+`reports/q3_examples_needed_run02.md` and `reports/q3_examples_needed_run03.md`.
+
+**The three measures:**
+- **Excess error** (planned): the area between the model's error-vs-examples curve and
+  ridge's, as the average gap over k = 0..15. 0 means optimal at every prompt length.
+- **Examples to match ridge** (planned, with one change): the smallest k after which the model
+  stays within 10% of ridge. Read literally, the plan's wording is always k = 0: with no
+  examples every predictor guesses about 0 and all errors are about 8.1. So the condition
+  has to hold from k on.
+- **Ridge-equivalent examples** (added after looking, as a readable summary): with 15
+  examples in the prompt, the model is as accurate as optimal regression with this many. 15
+  means it gets full value from every example.
+
+**Result:** once there are enough tasks the optimizer makes no difference. Below that, Muon's
+models get less out of each example.
+
+Ridge-equivalent examples at the end of Run 2 (out of 15, mean of 6 seeds):
+
+| Pool size | SGD 0.1 | AdamW 1e-4 | AdamW 3e-4 | Signum 1e-4 | Muon 0.005 | Muon 0.01 |
+|---|---|---|---|---|---|---|
+| 32 | 4.6 | 5.0 | 3.3 | 2.6 | 2.1 | 2.0 |
+| 128 | 10.7 | 10.1 | 7.9 | 7.3 | 6.2 | 6.6 |
+| 256 | 12.6 | 12.5 | 10.9 | 9.6 | 8.0 | 8.3 |
+| 512 | 12.6 | 13.4 | 13.2 | 12.6 | 9.6 | 10.3 |
+| 1,024 | 12.6 | 13.7 | 13.7 | 13.4 | 12.2 | 13.3 |
+| 2,048 | 12.5 | 13.8 | 13.8 | 13.8 | 13.8 | 13.8 |
+| infinite | 10.9 | 14.0 | 13.8 | 14.0 | 14.1 | 13.9 |
+
+- **With 2,048 or more tasks, both optimizers make about equally good use of the examples.**
+  With 15 examples, each is as accurate as optimal regression with about 14. Excess error is
+  0.04-0.06, against ridge errors from 8.1 (no examples) to 0.55 (15 examples). Between AdamW and
+  Muon the difference is at most 0.013. At Muon 0.005 that small difference favours Muon in 6
+  of 6 seeds. At Muon 0.01 it goes either way.
+- **With 1,024 or fewer tasks, Muon's models fall further behind ridge** in all four
+  learning-rate pairings, 6 of 6 seeds, p = 0.031 every time. At 256 tasks, a Muon model shown
+  15 examples does about as well as optimal regression shown 8. AdamW 1e-4 does as well as
+  optimal regression shown 12.5. Signum and SGD fall in the same order as their thresholds.
+- **The gap grows with the number of examples.** With 128 or more tasks, every model is within
+  about 10% of ridge for the first 2 examples. The memorising models fall behind as examples are added because they don't extract
+  the full value of each new example (figure: `reports/figs/run02/examples_needed.png`).
+- **The "examples to match ridge" measure doesn't work here.** Even the best models end at
+  1.07-1.09x ridge at 15 examples, right at the 10% line, so the measure mostly records which
+  side of 1.10 the last position happens to land on. It flips between 0 and 13 across seeds
+  and settings. The table is in the report, but it shouldn't be quoted.
+
+Over training (Run 3), ridge-equivalent examples follow the same rise and fall as Run 3's
+fading. At 1,024 tasks, AdamW peaks at 13.7 (step 37,000) and Muon at 13.3 (step 9,100). At
+128 tasks the peaks are 11.1 and 10.6. Muon's best is reached about 4x sooner and is slightly
+lower. These are means of 4 seeds, not paired-tested. By step 300,000 both have dropped, for
+example to 11.1 and 9.8 at 1,024 tasks. Figure: `reports/figs/run03/examples_needed_over_time.png`.
+
+**What it means:** this answers the proposal's question 3. The optimizer doesn't change how
+efficiently a model that has learned in-context regression uses its examples: with enough
+tasks, AdamW and Muon get about 14 examples' worth out of 15. Everything Muon changes shows up
+through memorisation. Where a Muon model memorises more (fewer tasks, or the same number of
+steps), it also gets less out of each example in the prompt.
 
 ---
 
