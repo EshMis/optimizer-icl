@@ -64,7 +64,7 @@ On 2026-11-11 the cluster's CPU queue was 93% full, with room for only about 5 r
 batch launched then could take a day.
 
 **Status:** all three batches were submitted the evening of 2026-11-11 and are waiting for free
-CPU slots. In any queue position 5a's runs start first, then 5b's, then 5c's.
+CPU slots. They were submitted in the order 5a, 5b, 5c, so 5a should start first.
 
 **Result:** pending.
 
