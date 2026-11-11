@@ -29,7 +29,7 @@ How to read the numbers:
 
 ---
 
-## Run 5: robustness to learning rate and weight decay (planned 2026-11-11, not launched)
+## Run 5: robustness to learning rate and weight decay (launched 2026-11-11, all three batches)
 
 **What:** 288 runs of 30,000 steps in three batches, each covering every pool size from 16 to
 1,024 plus infinite, with seeds 0-5. Every run is paired seed by seed with Run 2.
@@ -62,6 +62,11 @@ matching runs.
 **Cost:** at Run 2's pace (about 80 minutes per run, 70 at a time), each batch takes 2-3 hours.
 On 2026-11-11 the cluster's CPU queue was 93% full, with room for only about 5 runs at once, so a
 batch launched then could take a day.
+
+**Status:** all three batches were submitted the evening of 2026-11-11 and are waiting for free
+CPU slots. In any queue position 5a's runs start first, then 5b's, then 5c's.
+
+**Result:** pending.
 
 ---
 
