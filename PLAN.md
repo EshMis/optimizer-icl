@@ -125,3 +125,11 @@ learning rate, not as evidence either way. The same applies to Signum 3e-4's div
    no pass/fail rule here; it is reported as measured.
 4. *Examples needed* (question 3) and ICL onset are recomputed for every new cell. They are
    reported but don't drive a decision.
+
+**Note added 2026-11-12, after the results.** The rules above were applied as written; the outcome
+is in `LOG.md` (Run 5) and `reports/run05_robustness.md`. One thing the filter did not foresee:
+Muon 0.02 trains on an infinite pool, so it passes, and fails to fit pools of 16 and 32 tasks.
+The report gives the verdict of rule 1 as written and, labelled as added afterwards, the same
+rule over settings that pass the 1.3x test at every pool size. "Its infinite-pool runs end
+within 1.3x of ridge" was read as every one of the six runs; the seed mean gives the same
+answer for every setting.

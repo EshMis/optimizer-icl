@@ -20,20 +20,21 @@ How to read the numbers:
 
 | | |
 |---|---|
-| Stage | Runs 1-4 are done and analysed (Run 3 and question 3 on 2026-11-11). All three proposal questions are answered. Left: the robustness run (Run 5 in PLAN.md), the mechanism follow-ups, and the write-up. |
+| Stage | Runs 1-5 are done and analysed (Run 5 on 2026-11-11 and 12). All three proposal questions are answered. A plain-language account is in `WRITEUP.md`. Left: the mechanism follow-ups. |
 | Examples needed (question 3) | **With enough tasks (2,048 or more), the optimizer makes no difference**: with 15 examples, both models are as accurate as optimal regression with about 14. With fewer tasks, Muon's models get less out of each example (at 256 tasks: worth 8 examples vs AdamW's 12.5; 6 of 6 seeds, p = 0.031). |
-| Main finding | **At the same number of training steps, Muon memorises the task pool more and sooner, so it needs 2-3x more distinct tasks than AdamW before in-context learning wins** (6 of 6 seeds, every learning-rate pairing, p = 0.031, the smallest possible with 6 seeds). With 2,048 or more tasks the two end up the same. |
+| Main finding | **At the same number of training steps, Muon memorises the task pool more and sooner, so it needs 1.6x to 3.4x more distinct tasks than AdamW before in-context learning wins** (77-80 tasks against 23-49, depending on AdamW's learning rate; 6 of 6 seeds in all 12 pairings of stable learning rates, p = 0.031, the smallest possible with 6 seeds). With 2,048 or more tasks the two end up the same. |
+| Robustness (Run 5) | **The gap holds against AdamW's highest learning rate and with weight decay.** AdamW at 1e-3 switches at 49 tasks and stops learning one step higher; Muon's lowest stable setting switches at 77 (0.65 doublings, 6 of 6 seeds). With matched weight decay the gap is 1.03 doublings. Muon at 0.02 does not train stably on pools of 16 and 32 tasks. Counted as the pre-set rule requires, it makes the gap fail (Muon above AdamW in 3 of 6 seeds); among settings that train at every pool size the gap holds in 6 of 6. |
 | Long training (Run 3) | **Muon is roughly AdamW on a 4x faster clock.** Over 300,000 steps both thresholds keep rising at the same pace, and AdamW reaches each threshold about 4x later than Muon. In-context learning fades at every pool size for both optimizers. Muon peaks 3-4.5x sooner and starts fading 4-5x sooner (4 of 4 seeds). |
 | Why | **Both halves of Muon's update speed up memorisation** (Runs 4 and 4b). Signum, which equalises step sizes but doesn't orthogonalise, lands between AdamW and Muon at both learning rates tried; SGD lands on AdamW. Orthogonalisation adds 0.5-0.7 doublings on top of Signum (6 of 6 seeds in every pairing). Like Muon's, and unlike AdamW's, Signum's threshold barely moves with learning rate. |
-| Open questions | Why ICL onset speeds up only 1.3-2.5x while memorisation speeds up about 4x. |
+| Open questions | Why Muon's memorisation speed doesn't follow its learning rate when its ICL onset does (Run 5), and why onset speeds up only 1.3-2.8x while memorisation speeds up about 4x. |
 
 ---
 
-## Run 5: robustness to learning rate and weight decay (launched 2026-11-11, all three batches)
+## Run 5: robustness to learning rate and weight decay (2026-11-11, 04:00 PT onward)
 
 **What:** 288 runs of 30,000 steps in three batches, each covering every pool size from 16 to
 1,024 plus infinite, with seeds 0-5. Every run is paired seed by seed with Run 2.
-- **5a (first):** AdamW one learning-rate step up (1e-3) and Muon one step down (0.0025).
+- **5a:** AdamW one learning-rate step up (1e-3) and Muon one step down (0.0025).
 - **5b:** weight decay for both, set so each optimizer's weights shrink by the same amount per
   step: AdamW 3e-4 with 0.1, Muon 0.005 with 0.006. Equal settings would shrink Muon's weights
   17x faster, because the shrink scales with the learning rate.
@@ -41,32 +42,108 @@ How to read the numbers:
 
 **Why:** the main finding compares two hand-picked learning rates per optimizer. AdamW's
 threshold rises with its learning rate (28 tasks at 1e-4, 41 at 3e-4), so the obvious objection
-is that a higher AdamW learning rate would catch up with Muon. 5a tests that directly, which is
-why it runs first. Weight decay is the standard lever on whether in-context learning fades, and
-Muon is normally run with it.
+is that a higher AdamW learning rate would catch up with Muon. 5a tests that directly. Weight
+decay is the standard lever on whether in-context learning fades, and Muon is normally run
+with it.
 
-**What would change the story:** the decision rules are fixed in PLAN.md ("Run 5 design")
-before any result.
-- If AdamW 1e-3 still sits below Muon 0.0025 in 6 of 6 seeds, the threshold gap survives
-  tuning.
-- If AdamW 1e-3 catches up, the finding becomes "Muon acts like AdamW at a higher learning
-  rate". That fits Run 3's faster-clock reading and is still reportable.
-- With weight decay, the question is whether the gap holds (6 of 6 seeds) and whether decay
-  slows the fade for either optimizer.
+**The rules were fixed first:** PLAN.md ("Run 5 design") set the trainability filter and the
+decision rules before any of these runs finished. The filter says "infinite-pool runs end
+within 1.3x of ridge". We read that as every one of the six runs, and fixed that reading
+before looking at any Run 5 number.
 
-**What the results will look like:** the Run 2 threshold table with up to eight learning rates
-instead of four, a paired test for each pairing, and a version of the threshold-against-pool-size
-figure with every learning rate on it. A second table will show weight decay against Run 2's
-matching runs.
+**Status:** 287 of 288 runs finished. One Muon 0.02 run (1,024 tasks, seed 1) hit the cluster's
+6-hour limit at step 29,700 of 30,000 and is left out. It is far from the threshold and isn't
+one of the runs the filter looks at.
 
-**Cost:** at Run 2's pace (about 80 minutes per run, 70 at a time), each batch takes 2-3 hours.
-On 2026-11-11 the cluster's CPU queue was 93% full, with room for only about 5 runs at once, so a
-batch launched then could take a day.
+**Result:** the threshold gap holds against AdamW's highest learning rate and under weight
+decay. By the rule as written it fails at Muon's highest learning rate, 0.02, where Muon does
+not train stably on small pools. Full tables:
+`reports/run05_robustness.md`. Figures: `reports/figs/run05/`.
 
-**Status:** all three batches were submitted the evening of 2026-11-11 and are waiting for free
-CPU slots. They were submitted in the order 5a, 5b, 5c, so 5a should start first.
+Pool size where each setting switches from memorising to in-context learning, at 30,000 steps
+(6 seeds):
 
-**Result:** pending.
+| Setting | Threshold (tasks) | Infinite-pool error vs ridge (worst seed) |
+|---|---|---|
+| AdamW 3e-5 | 23 | 1.13x |
+| AdamW 1e-4 (Run 2) | 28 | 1.09x |
+| AdamW 3e-4 (Run 2) | 41 | 1.13x |
+| AdamW 1e-3 | 49 | 1.11x |
+| Muon 0.0025 | 77 | 1.08x |
+| Muon 0.005 (Run 2) | 80 | 1.08x |
+| Muon 0.01 (Run 2) | 77 | 1.10x |
+| AdamW 3e-4 with decay 0.1 | 39 | 1.16x |
+| Muon 0.005 with decay 0.006 | 80 | 1.11x |
+
+![threshold against learning rate](reports/figs/run05/threshold_vs_lr.png)
+
+**1. AdamW at its highest learning rate still sits below Muon (5a).** AdamW's threshold rises
+at every learning-rate step (0.24, 0.56 and 0.27 doublings, 6 of 6 seeds each), reaching 49
+tasks at 1e-3. Run 1 showed that at 3e-3 AdamW no longer learns. Muon's threshold is the same
+at 0.0025, 0.005 and 0.01 (77, 80 and 77 tasks; neither step is a real change). The closest
+pairing is AdamW 1e-3 against Muon 0.0025: Muon is 0.65 doublings higher (1.57x more tasks),
+95% interval 0.59 to 0.71, 6 of 6 seeds, p = 0.031. Across all 12 pairings of these learning
+rates the gap runs from 0.65 to 1.78 doublings, 6 of 6 seeds every time. So "2-3x more tasks"
+from Run 2 becomes "1.6x to 3.4x, depending on AdamW's learning rate".
+
+**2. The gap holds with weight decay (5b).** With matched decay Muon's threshold is 1.03
+doublings above AdamW's (80 against 39 tasks, 6 of 6 seeds, p = 0.031). Decision rule 2 is
+met. Decay itself barely moves either threshold: AdamW's drops by 0.05 doublings (6 of 6
+seeds, so real but tiny) and Muon's doesn't change.
+
+**3. Weight decay reduces fading slightly (rule 3, reported as measured).** At 128 tasks the
+final error over the best error falls from 2.11 to 1.94 for AdamW and from 2.86 to 2.75 for
+Muon (6 of 6 seeds each). At 64 and 256 tasks the changes are not significant.
+At this strength and this training length, decay is a weak lever and doesn't change which
+optimizer memorises more.
+
+**4. By the rule as written, the gap fails at Muon 0.02, and that verdict rests on runs that
+did not train (5c).** Muon 0.02 passes the filter fixed in advance: its infinite-pool runs end
+at 1.14x to 1.23x ridge. Its measured threshold is 40 tasks, below AdamW 1e-3's 49, and it is
+above AdamW's in only 3 of 6 seeds (p = 0.50). Decision rule 1, applied exactly as written,
+says the gap does not survive tuning.
+
+What produces that number: with 16 and 32 tasks, Muon 0.02 memorises the pool early (pool-task
+error within 1.26x and 1.18x of the best possible memoriser by about steps 2,400 and 9,400) and
+then loses it. 4 of 6 runs at 16 tasks and 6 of 6 at 32 end with an error on their own pool
+above 1.3x what ridge gets on the same prompts. Their median final pool-task error is 5.11x
+and 7.78x the memoriser's. No run of any other setting does that, at any pool size. A model in
+that state is neither memorising nor regressing, so its alpha says nothing about which it
+prefers. In three seeds those runs put alpha below 0.5 at 32 tasks, and the threshold
+calculation reads that as a switch to in-context learning between 16 and 32 tasks. In the
+other three seeds the threshold lies between pool sizes whose runs trained, and all three are
+above AdamW 1e-3's.
+
+Where Muon 0.02 does train, it still memorises more than AdamW 1e-3: alpha is higher in 6 of 6
+seeds at 64, 128 and 256 tasks (p = 0.031 each), and the two are level at 512.
+
+The filter only looks at the infinite pool, so it lets this setting through. Applying the same
+1.3x test at every pool size (added after looking) removes Muon 0.02 and nothing else. Among
+the settings that remain the gap survives: Muon 0.0025 against AdamW 1e-3, 0.65 doublings,
+6 of 6 seeds, p = 0.031. Both readings are in the report.
+
+**5. Same ICL onset, different threshold (added after looking).** AdamW 1e-3 and Muon 0.0025
+start in-context learning at the same step: the ratio of onset steps is 0.99 (95% interval
+0.92 to 1.06). Muon's threshold is still 0.65 doublings higher. Raising Muon's learning rate
+from 0.0025 to 0.01 brings its onset forward (median step 586 to between 340 and 390) and
+leaves its threshold where it was. For AdamW the learning rate moves both.
+
+**6. Examples needed and final errors (rule 4, reported).** The new settings follow the same
+pattern as Run 2. With an infinite pool every stable setting is worth 13.7 to 14.2 examples
+out of 15. At 256 tasks AdamW is worth 10.0 to 12.9 and Muon 8.0 to 8.3.
+
+**What it means:** across every setting that trains at all pool sizes, the main finding
+survives the two obvious objections. Tuning AdamW's learning rate narrows the gap and can't
+close it, because AdamW stops training before it gets there, and weight decay doesn't touch
+it. The rule we wrote in advance returns the opposite verdict because its filter didn't
+anticipate a setting that trains on an infinite pool and breaks down on small ones. The new piece is that Muon's memorisation
+speed doesn't follow its learning rate while its ICL onset does. That fits the open question
+from Run 3: the clock for memorisation and the clock for regression are separate, and Muon's
+learning rate only turns one of them.
+
+**Caveats:** one weight-decay strength, 30,000 steps, the same model and batch size as before.
+The stability check in point 4 and the onset comparison in point 5 were added after looking
+at the results and are labelled that way in the report.
 
 ---
 

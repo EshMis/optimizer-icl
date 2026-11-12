@@ -15,7 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-COL = {"adamw": "#1f77b4", "muon": "#d62728", "signum": "#2ca02c", "sgdm": "#9467bd"}
+# Blue, orange and aqua are told apart under the common colour-vision deficiencies (checked pairwise);
+# SGD is a neutral grey and is always labelled. Figures made before 2026-11-12 used matplotlib's defaults.
+COL = {"adamw": "#2a78d6", "muon": "#eb6834", "signum": "#1baf7a", "sgdm": "#52514e"}
 
 
 def load(d):
