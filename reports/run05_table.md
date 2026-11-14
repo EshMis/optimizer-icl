@@ -1,7 +1,6 @@
 # Run 5, every run
 
-Written with `analyze.table`. Columns as in `run02_table.md`. A status of `running` marks the one
-run that was cut off by the cluster's time limit.
+Written by `scripts/run05_table.py` with `analyze.table`. Columns as in `run02_table.md`.
 
 ## 5a and 5c: learning rates, no weight decay (192 runs)
 
@@ -170,7 +169,7 @@ run that was cut off by the cluster's time limit.
 | muon lr=0.0025 aux=0.0003 M=2^10 seed=4 | ok @30000 | 220 | 0.701 (1.39x) | 0.527 (2.05x) | 0.10 | 0.14 | 586 | 0.562 @ 12900 | 1.24 |
 | muon lr=0.0025 aux=0.0003 M=2^10 seed=5 | ok @30000 | 73 | 0.700 (1.26x) | 0.557 (2.30x) | 0.08 | 0.10 | 586 | 0.607 @ 9600 | 1.16 |
 | muon lr=0.02 aux=0.0003 M=2^10 seed=0 | ok @30000 | 169 | 0.643 (1.16x) | 0.656 (2.57x) | 0.04 | 0.02 | 297 | 0.617 @ 27900 | 1.05 |
-| muon lr=0.02 aux=0.0003 M=2^10 seed=1 | running @29700 | 364 | 0.651 (1.15x) | 0.650 (2.58x) | 0.03 | 0.02 | 297 | 0.641 @ 25800 | 1.05 |
+| muon lr=0.02 aux=0.0003 M=2^10 seed=1 | ok @30000 | 214 | 0.675 (1.19x) | 0.681 (2.71x) | 0.04 | 0.02 | 297 | 0.641 @ 25800 | 1.05 |
 | muon lr=0.02 aux=0.0003 M=2^10 seed=2 | ok @30000 | 263 | 0.661 (1.17x) | 0.596 (2.38x) | 0.02 | 0.02 | 297 | 0.635 @ 29400 | 1.03 |
 | muon lr=0.02 aux=0.0003 M=2^10 seed=3 | ok @30000 | 185 | 0.740 (1.35x) | 0.710 (2.77x) | 0.06 | 0.01 | 297 | 0.595 @ 22800 | 1.09 |
 | muon lr=0.02 aux=0.0003 M=2^10 seed=4 | ok @30000 | 173 | 0.578 (1.14x) | 0.651 (2.54x) | 0.03 | 0.02 | 297 | 0.576 @ 28800 | 1.05 |

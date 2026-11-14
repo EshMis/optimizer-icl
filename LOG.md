@@ -51,9 +51,10 @@ decision rules before any of these runs finished. The filter says "infinite-pool
 within 1.3x of ridge". We read that as every one of the six runs, and fixed that reading
 before looking at any Run 5 number.
 
-**Status:** 287 of 288 runs finished. One Muon 0.02 run (1,024 tasks, seed 1) hit the cluster's
-6-hour limit at step 29,700 of 30,000 and is left out. It is far from the threshold and isn't
-one of the runs the filter looks at.
+**Status:** 288 of 288 runs finished. One Muon 0.02 run (1,024 tasks, seed 1) first hit the
+cluster's 6-hour limit at step 29,700 of 30,000. It was rerun on 2026-11-13 with a 10-hour limit
+and matched the cut-off run at all 159 evaluations they share. Counting it changed no threshold
+and no verdict.
 
 **Result:** the threshold gap holds against AdamW's highest learning rate and under weight
 decay. By the rule as written it fails at Muon's highest learning rate, 0.02, where Muon does

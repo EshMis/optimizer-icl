@@ -7,14 +7,14 @@ Written by `scripts/writeup_numbers.py`. Do not edit by hand.
 | Results directory | Steps per run | Finished runs | Wall-clock hours | CPU cores per run | Core-hours |
 |---|---|---|---|---|---|
 | run01_calibrate | 30,000 | 17 | 25 | 16 | 406 |
-| run02_main | 30,000 | 611 | 881 | 8 | 7,050 |
+| run02_main | 30,000 | 612 | 885 | 8 | 7,079 |
 | run03_long | 300,000 | 40 | 537 | 8 | 4,296 |
 | run04a_ablation_lr | 30,000 | 14 | 19 | 8 | 152 |
 | run05b_wd | 30,000 | 96 | 133 | 8 | 1,062 |
 
-Total: 778 finished training runs, about 13,000 core-hours.
+Total: 779 finished training runs, about 13,000 core-hours.
 
-A 30,000-step run on 8 cores took a median of 76 minutes (mean 86, 90th percentile 122; 707 runs).
+A 30,000-step run on 8 cores took a median of 76 minutes (mean 86, 90th percentile 122; 708 runs).
 
 ## Runs as designed (lines in `tasks/`)
 

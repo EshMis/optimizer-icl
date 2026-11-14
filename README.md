@@ -47,7 +47,7 @@ figures and caveats.
 | `scripts/compare_opts.py` | all optimizers in one threshold table (Run 4) |
 | `scripts/threshold_over_time.py`, `scripts/run03_dynamics.py` | the threshold during training, the clock test and the fade table (Runs 2 and 3) |
 | `scripts/examples_needed.py` | how many in-context examples each model needs (question 3) |
-| `scripts/run05_robustness.py` | learning-rate and weight-decay robustness, by the rules fixed in `PLAN.md` (Run 5) |
+| `scripts/run05_robustness.py`, `scripts/run05_table.py` | learning-rate and weight-decay robustness, by the rules fixed in `PLAN.md` (Run 5) |
 | `scripts/writeup_figs.py`, `scripts/writeup_numbers.py`, `scripts/check_writeup.py` | the figures and derived numbers in `WRITEUP.md`, and a check that its numbers match the reports |
 | `tasks/` | the exact arguments of every run, one per line |
 | `jobs/` | SGE job scripts (cluster-specific interpreter paths go in an uncommitted `jobs/site.env`) |

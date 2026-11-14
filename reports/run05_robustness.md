@@ -16,16 +16,11 @@ weights and batches in every setting, so every comparison is paired.
 | Muon 0.0025 | Run 5 | 48 |
 | Muon 0.005 | Run 2 | 48 |
 | Muon 0.01 | Run 2 | 48 |
-| Muon 0.02 | Run 5 | 47 |
+| Muon 0.02 | Run 5 | 48 |
 | AdamW 0.0003 + decay 0.1 | Run 5b | 48 |
 | Muon 0.005 + decay 0.006 | Run 5b | 48 |
 
-Runs that did not finish (they are left out of every table below):
-
-- Muon 0.02, pool size 1024, seed 1: stopped at step 29,700 of 30,000. Over its last 5 evaluations alpha was 0.03 and new-task error 1.19x ridge; the 5 finished seeds at that pool size have alpha 0.02 to 0.03.
-
-Every setting has the runs the decision rules need: all six infinite-pool runs, and the pool
-sizes on both sides of each seed's threshold.
+All settings are complete.
 
 ## Which settings count (trainability filter)
 
@@ -96,7 +91,7 @@ against regressing.
 | Muon 0.0025 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | yes |
 | Muon 0.005 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | yes |
 | Muon 0.01 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | yes |
-| Muon 0.02 | 4 of 6 | 6 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 5 | 0 of 6 | **no** |
+| Muon 0.02 | 4 of 6 | 6 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | **no** |
 | AdamW 0.0003 + decay 0.1 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | yes |
 | Muon 0.005 + decay 0.006 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | 0 of 6 | yes |
 
@@ -156,7 +151,7 @@ alpha on new tasks (1 = memorising, 0 = regressing), Muon minus AdamW, paired by
 | 128 | 0 of 6 | 0.26 / 0.29 | +0.03 [+0.01, +0.04] | 6/6 | 0.031 |
 | 256 | 0 of 6 | 0.16 / 0.20 | +0.04 [+0.02, +0.06] | 6/6 | 0.031 |
 | 512 | 0 of 6 | 0.07 / 0.07 | +0.00 [-0.02, +0.03] | 3/6 | 0.781 |
-| 1024 | 0 of 5 | 0.04 / 0.03 | -0.01 [-0.01, -0.01] | 0/5 | 0.062 |
+| 1024 | 0 of 6 | 0.04 / 0.03 | -0.01 [-0.01, -0.00] | 1/6 | 0.125 |
 
 ### Added after looking: settings with the same ICL onset still differ in threshold
 
@@ -226,7 +221,7 @@ model is as accurate as optimal regression with this many.
 | 128 | 11.5 | 10.1 | 7.9 | 7.9 | 6.6 | 6.2 | 6.6 | 7.0 | 8.2 | 6.3 |
 | 256 | 12.9 | 12.5 | 10.9 | 10.0 | 8.0 | 8.0 | 8.3 | 8.6 | 11.1 | 8.0 |
 | 512 | 13.3 | 13.4 | 13.2 | 12.6 | 9.4 | 9.6 | 10.3 | 12.2 | 13.1 | 9.8 |
-| 1024 | 13.5 | 13.7 | 13.7 | 13.4 | 12.0 | 12.2 | 13.3 | 13.3 | 13.6 | 12.3 |
+| 1024 | 13.5 | 13.7 | 13.7 | 13.4 | 12.0 | 12.2 | 13.3 | 13.2 | 13.6 | 12.3 |
 | infinite | 13.7 | 14.0 | 13.8 | 13.9 | 14.2 | 14.1 | 13.9 | 13.1 | 13.7 | 13.9 |
 
 New-task error vs ridge / pool-task error vs dMMSE at the end (mean of 6 seeds):
@@ -239,5 +234,5 @@ New-task error vs ridge / pool-task error vs dMMSE at the end (mean of 6 seeds):
 | 128 | 1.50x / 2.45x | 1.93x / 2.19x | 3.19x / 1.71x | 3.29x / 1.53x | 4.48x / 1.32x | 4.94x / 1.24x | 4.41x / 1.24x | 3.88x / 1.40x | 2.95x / 1.83x | 4.77x / 1.29x |
 | 256 | 1.22x / 2.53x | 1.28x / 2.41x | 1.66x / 2.23x | 2.01x / 1.93x | 3.09x / 1.43x | 3.10x / 1.39x | 2.88x / 1.47x | 2.67x / 1.72x | 1.58x / 2.34x | 3.08x / 1.45x |
 | 512 | 1.15x / 2.51x | 1.14x / 2.43x | 1.17x / 2.42x | 1.27x / 2.38x | 2.28x / 1.64x | 2.14x / 1.78x | 1.88x / 1.97x | 1.34x / 2.47x | 1.19x / 2.48x | 2.06x / 1.84x |
-| 1024 | 1.13x / 2.49x | 1.10x / 2.41x | 1.10x / 2.42x | 1.14x / 2.47x | 1.37x / 2.15x | 1.35x / 2.20x | 1.16x / 2.38x | 1.17x / 2.53x | 1.12x / 2.46x | 1.33x / 2.24x |
+| 1024 | 1.13x / 2.49x | 1.10x / 2.41x | 1.10x / 2.42x | 1.14x / 2.47x | 1.37x / 2.15x | 1.35x / 2.20x | 1.16x / 2.38x | 1.17x / 2.55x | 1.12x / 2.46x | 1.33x / 2.24x |
 | infinite | 1.10x / 1.12x | 1.08x / 1.10x | 1.10x / 1.10x | 1.09x / 1.10x | 1.06x / 1.07x | 1.07x / 1.08x | 1.09x / 1.09x | 1.18x / 1.18x | 1.11x / 1.12x | 1.09x / 1.10x |

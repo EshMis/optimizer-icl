@@ -228,9 +228,7 @@ def claims():
     vs = {r[0]: r for r in rows(R5, "Muon 0.02 against AdamW 0.001, pool size by pool size")[1:]}
     assert all(vs[k][4] == "6/6" for k in ("64", "128", "256")), "Muon 0.02 is not more memorising than AdamW 1e-3 in 6 of 6 seeds at 64, 128 and 256"
     add(W, "Muon 0.02 where it trains", r"still on the memorising side of AdamW at 1e-3, in (\d) of (\d) seeds at 64, 128 and 256 tasks", ["6", "6"])
-    assert n02 == 47, "the count of finished Muon 0.02 runs changed; update the sentence about the run that was cut off"
-    cut = grab(R5, r"Muon 0\.02, pool size 1024, seed 1: stopped at step ([\d,]+) of 30,000")[0]
-    add(W, "run cut off", r"One of the 48 runs at Muon 0\.02 \(1,024 tasks, seed 1\) hit the cluster's time limit at step ([\d,]+) of 30,000", [cut])
+    assert n02 == 48 and "All settings are complete." in read(R5), "a Run 5 run is unfinished; the write-up says nothing is left out"
     add(W, "weight decay", r"Muon's threshold is (\d+) tasks and AdamW's (\d+), a gap of ([\d.]+) doublings in 6 of 6 seeds", [thr5("Muon 0.005 + decay 0.006"), thr5("AdamW 0.0003 + decay 0.1"), wd_gap])
     add(W, "decay on thresholds", r"Decay moved neither threshold by more than ([\d.]+) doublings", [f2(max(own))])
     add(W, "decay on fading", r"went from ([\d.]+) to ([\d.]+) for AdamW and from ([\d.]+) to ([\d.]+) for Muon", [first(fade_a[2]), second(fade_a[2]), first(fade_m[2]), second(fade_m[2])])

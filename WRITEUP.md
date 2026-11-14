@@ -9,7 +9,7 @@ table quoted here is produced by a script in this repository (see
 
 We trained small transformers to do linear regression from the examples in their prompt, and
 changed one thing between runs: the optimizer used on the attention and MLP weight matrices.
-Across 778 finished training runs, AdamW and Muon differ in one specific way.
+Across 779 finished training runs, AdamW and Muon differ in one specific way.
 
 - When every prompt is a new task, both optimizers end up equally good, between 1.06x and
   1.10x the best possible error.
@@ -209,9 +209,6 @@ Applying the same 1.3x test at every pool size removes Muon at 0.02 and no other
 the gap then survives in 6 of 6 seeds, as described above. That second test was added after
 seeing these runs, and the report labels it that way. Where Muon at 0.02 does train, it is
 still on the memorising side of AdamW at 1e-3, in 6 of 6 seeds at 64, 128 and 256 tasks.
-
-One of the 48 runs at Muon 0.02 (1,024 tasks, seed 1) hit the cluster's time limit at step
-29,700 of 30,000 and is left out. It is far from the threshold.
 
 Weight decay leaves the result as it was. With both optimizers' matrices shrunk by the same
 factor per step, Muon's threshold is 80 tasks and AdamW's 39, a gap of 1.03 doublings in 6 of 6
