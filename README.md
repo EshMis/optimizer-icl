@@ -72,8 +72,11 @@ play the roles of ridge and dMMSE.
 - With a fresh cipher in every prompt and 30,000 steps, **no AdamW run learned the task at
   learning rates 3e-4, 1e-3 or 3e-3 (0 of 9), while every Muon run did, by step 1,155 (3 of
   3).** Muon on the MLP only learned it in 1 of 3, at step 13,800.
-- Because stuck runs neither memorise nor decode, the cipher threshold is not yet a valid
-  comparison. Run 8c, in progress, tries an easier 8-letter puzzle and Muon on attention only.
+- **Muon on attention only learns the task as fast as full Muon** (6 of 6 runs, on the
+  16-letter puzzle and an easier 8-letter one), so Muon's speed-up here lives in attention.
+  AdamW fails even the 8-letter puzzle.
+- Because AdamW cannot learn the task, the cipher threshold compares full Muon with Muon on
+  attention only, which differ only in the MLP (Run 8d, in progress).
 
 [`WRITEUP.md`](WRITEUP.md) explains the original experiment and each result in plain language,
 with figures and caveats. [`WRITEUP_MECHANISM.md`](WRITEUP_MECHANISM.md) does the same for

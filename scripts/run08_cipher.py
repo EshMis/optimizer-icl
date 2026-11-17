@@ -16,8 +16,9 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from stats import threshold_log2M  # noqa: E402
 
-LABEL = {"adamw": "AdamW 3e-4", "muon": "Muon 0.005", "muon_mlp": "Muon on MLP only"}
-COL = {"adamw": "#2a78d6", "muon": "#eb6834", "muon_mlp": "#8e5a2b"}
+LABEL = {"adamw": "AdamW 3e-4", "muon": "Muon 0.005", "muon_mlp": "Muon on MLP only", "muon_attn": "Muon on attention only"}
+COL = {"adamw": "#2a78d6", "muon": "#eb6834", "muon_mlp": "#8e5a2b", "muon_attn": "#c0392b"}
+SETTINGS = ("adamw", "muon_attn", "muon", "muon_mlp")
 
 
 def load(d):
@@ -32,7 +33,7 @@ def load(d):
 
 
 def setting(c):
-    return "muon_mlp" if c["opt"] == "muon" and c["route"] == "mlp" else c["opt"]
+    return f"{c['opt']}_{c['route']}" if c["route"] != "all" else c["opt"]
 
 
 def tail(r, k, n=5):
@@ -57,7 +58,7 @@ def main():
     Ms = sorted({k[1] for d in by.values() for k in d if k[1] > 0})
     out = ["## Cipher task: threshold M* at 15,000 steps\n", "| setting | runs | M* | log2 M* per seed | onset step (median, unlimited pool) |", "|---|---|---|---|---|"]
     thr = {}
-    for s in ("adamw", "muon", "muon_mlp"):
+    for s in SETTINGS:
         if s not in by:
             continue
         d = by[s]
@@ -75,17 +76,21 @@ def main():
         n = min(len(thr["adamw"]), len(thr["muon"]))
         dd = np.array(thr["muon"][:n]) - np.array(thr["adamw"][:n])
         out.append(f"\nMuon minus AdamW: {np.nanmean(dd):+.2f} doublings ({' '.join(f'{v:+.2f}' for v in dd)})")
+    if "muon_attn" in thr and "muon" in thr:
+        n = min(len(thr["muon_attn"]), len(thr["muon"]))
+        dd = np.array(thr["muon"][:n]) - np.array(thr["muon_attn"][:n])
+        out.append(f"Full Muon minus Muon-on-attention (effect of Muon on the MLP): {np.nanmean(dd):+.2f} doublings ({' '.join(f'{v:+.2f}' for v in dd)})")
     if "muon_mlp" in thr and "adamw" in thr:
         n = min(len(thr["adamw"]), len(thr["muon_mlp"]))
         dd = np.array(thr["muon_mlp"][:n]) - np.array(thr["adamw"][:n])
         out.append(f"Muon-on-MLP minus AdamW: {np.nanmean(dd):+.2f} doublings ({' '.join(f'{v:+.2f}' for v in dd)})")
 
     out.append("\n## Per pool size (mean over seeds): alpha on new ciphers | unseen-letter CE on new ciphers minus optimal | unseen-letter accuracy on pool ciphers (memorisation; dMMSE-style optimum in brackets)\n")
-    out.append("| M | " + " | ".join(LABEL[s] for s in ("adamw", "muon", "muon_mlp") if s in by) + " |")
+    out.append("| M | " + " | ".join(LABEL[s] for s in SETTINGS if s in by) + " |")
     out.append("|---|" + "---|" * len([s for s in by]))
     for M in Ms + [0]:
         cells = []
-        for s in ("adamw", "muon", "muon_mlp"):
+        for s in SETTINGS:
             if s not in by:
                 continue
             rs = [r for (sd, m), r in by[s].items() if m == M]
@@ -99,7 +104,7 @@ def main():
         out.append(f"| {'unlimited' if M == 0 else M} | " + " | ".join(cells) + " |")
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    for s in ("adamw", "muon", "muon_mlp"):
+    for s in SETTINGS:
         if s not in by:
             continue
         for ax, key, lab in zip(axes, ("alpha_ood", "ce_ood_unseen", "acc_id_unseen"),
@@ -111,7 +116,7 @@ def main():
             ax.errorbar(Ms, mu, yerr=se, fmt="o-", color=COL[s], label=LABEL[s], capsize=2)
             ax.set_xscale("log", base=2); ax.set_xlabel("pool size M"); ax.set_ylabel(lab); ax.grid(alpha=0.3)
     axes[0].axhline(0.5, color="k", ls=":")
-    r0 = next(iter(by["adamw"].values()))
+    r0 = next(iter(next(iter(by.values())).values()))
     axes[1].axhline(r0["base"]["ce_icl_ood_unseen"], color="k", ls=":")
     axes[0].legend(fontsize=8)
     fig.suptitle("Substitution-cipher task, 15,000 steps (mean ± s.e. over seeds)")
@@ -121,7 +126,7 @@ def main():
     show = [M for M in (64, 256, 1024) if M in Ms]
     fig, axes = plt.subplots(1, len(show), figsize=(5 * len(show), 4), squeeze=False)
     for ax, M in zip(axes[0], show):
-        for s in ("adamw", "muon", "muon_mlp"):
+        for s in SETTINGS:
             if s not in by:
                 continue
             for i, ((sd, m), r) in enumerate(sorted(by[s].items())):

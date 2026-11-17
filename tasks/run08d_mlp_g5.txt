@@ -1,0 +1,11 @@
+# Run 8d: cipher V=16 K=24, full Muon vs Muon on attention only (MLP on AdamW 3e-4), pools 16-4096 + unlimited, 3 seeds, 15k steps
+--opt muon --lr 0.005 --aux_lr 3e-4 --M 256 --seed 0 --pool_seed 0 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --route attn --aux_lr 3e-4 --M 16 --seed 0 --pool_seed 0 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --route attn --aux_lr 3e-4 --M 1024 --seed 0 --pool_seed 0 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --aux_lr 3e-4 --M 64 --seed 1 --pool_seed 1 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --aux_lr 3e-4 --M 4096 --seed 1 --pool_seed 1 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --route attn --aux_lr 3e-4 --M 256 --seed 1 --pool_seed 1 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --aux_lr 3e-4 --M 16 --seed 2 --pool_seed 2 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --aux_lr 3e-4 --M 1024 --seed 2 --pool_seed 2 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --route attn --aux_lr 3e-4 --M 64 --seed 2 --pool_seed 2 --steps 15000 --eval_pct 2
+--opt muon --lr 0.005 --route attn --aux_lr 3e-4 --M 4096 --seed 2 --pool_seed 2 --steps 15000 --eval_pct 2
