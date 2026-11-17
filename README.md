@@ -52,6 +52,10 @@ letter-substitution ciphers.
   attention alone gives none.
 - **The gap is a constant factor of about 2 at every width** from 64 to 512 (0.4M to 25M
   parameters). Both thresholds grow with width at the same rate, roughly width^0.44.
+- **Counting training compute (FLOPs) rather than steps,** Muon still memorises 2.5x to 6x
+  sooner at every width. Its head start in learning in-context regression shrinks with width
+  and is gone at width 512, so at that size its compute advantage goes entirely to
+  memorisation (`scripts/flops.py`).
 - Three seeds per setting in Run 6 and two per width in Run 7; every comparison above has the
   same sign in every seed.
 
@@ -109,6 +113,7 @@ Runs 6 to 8.
 | `icl/cipher.py`, `icl/cipher_model.py` | cipher task: pool, sampler, exact in-context decoder and pool memoriser; token-in, softmax-out version of the model |
 | `train_cipher.py`, `sweep_cipher.py` | one cipher training run; many cipher runs sharing one GPU |
 | `scripts/run06_mech.py` | Run 6: threshold per optimizer variant, and the threshold against four clocks |
+| `scripts/flops.py` | training FLOPs per step, and the threshold against cumulative compute across widths |
 | `scripts/run07_capacity.py` | Run 7: threshold against width, and Signum at Muon's step size |
 | `scripts/run08_cipher.py` | Run 8: cipher threshold, errors and training curves |
 | `tasks/` | the exact arguments of every run, one per line |

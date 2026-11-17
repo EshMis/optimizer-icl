@@ -26,6 +26,9 @@ under `scripts/` from saved metrics; see [Where each number comes from](#where-e
 - **Signum sits between AdamW and Muon even at matched step length**, which reconciles the
   original Signum result: equalising entries recovers a quarter of the gap, equalising singular
   directions recovers all of it.
+- **Counting training compute (FLOPs) instead of steps,** Muon still memorises 2.5x to 6x
+  sooner at every width, but its head start in learning the in-context algorithm shrinks with
+  size and is gone at width 512.
 - **On a second task, letter-substitution ciphers,** Muon again memorises larger pools, and it
   also finds the in-context copy circuit far faster than AdamW, which often stays stuck on a
   plateau. With an unlimited pool and 30,000 steps, no AdamW run at any of three learning rates
@@ -187,6 +190,53 @@ higher than AdamW's (85), so the effective-rank measure does not explain Signum'
 effect. Effective rank tracks the full-Muon settings well; what Signum does is not captured
 by it.
 
+## Compute accounting: thresholds against FLOPs
+
+Comparisons so far are at a matched number of steps. Muon does extra work every step (five
+Newton-Schulz iterations per weight matrix), so a fair efficiency comparison counts training
+compute instead. FLOPs per step are counted analytically: forward and backward passes
+(3 x forward, forward = 2 x matrix parameters x tokens plus the attention terms) and, for Muon,
+the Newton-Schulz matrix products. `scripts/flops.py` computes them and re-plots the threshold
+M*(t) from Runs 6 and 7a against cumulative compute. Curves start after in-context learning has
+formed on the largest pool; before that, alpha is near 0.5 at every pool size and the
+threshold is noise.
+
+| Width | AdamW GFLOPs per step | Muon GFLOPs per step | Newton-Schulz share of Muon's step |
+|---|---|---|---|
+| 64 | 21.0 | 21.6 | 2.9% |
+| 128 | 80.6 | 85.6 | 5.9% |
+| 256 | 316 | 356 | 11.3% |
+| 512 | 1,250 | 1,572 | 20.5% |
+
+Muon's overhead grows with width, because Newton-Schulz costs grow with the cube of the matrix
+size while the forward and backward passes grow with its square times the number of tokens.
+
+![threshold against step and against compute, all widths](reports/figs/flops/threshold_vs_flops.png)
+
+Two ratios, AdamW's compute over Muon's (above 1 means Muon gets there with less compute; 2
+seeds per width, 3 at width 128):
+
+| Width | Compute to reach M* = 32 | Compute to reach M* = 48 | Compute to start in-context learning (pool 256) |
+|---|---|---|---|
+| 64 | AdamW never reaches it | AdamW never reaches it | 1.91x |
+| 128 | 6.0x | AdamW never reaches it | 1.24x |
+| 256 | 4.5x | 3.0x | 1.16x |
+| 512 | 3.0x | 2.5x | 0.98x |
+
+- **Counting compute, Muon still memorises sooner at every width,** by 2.5x to 6x.
+- **Its head start in learning the in-context algorithm disappears with scale.** It is about 2x
+  at width 64 and gone at width 512, where both optimizers start in-context learning at the
+  same compute.
+- **So at the largest model, Muon's compute efficiency goes entirely to memorisation.** Per
+  FLOP, both optimizers find in-context regression equally fast, and Muon then replaces it with
+  memorisation 2 to 3 times sooner.
+- Against compute the widths do not fall on one curve: for these pool sizes, a smaller model
+  reaches a given threshold with less compute than a larger one, for both optimizers.
+
+Caveats: FLOPs are counted analytically, not measured, and Newton-Schulz runs in bfloat16 in
+the reference implementation, which makes its real cost lower than counted here. Two seeds per
+width make the onset ratios a trend, not a precise estimate.
+
 ## Run 8: a second task, letter-substitution ciphers
 
 ### The task
@@ -303,6 +353,7 @@ full Muon's threshold should be the higher one.
 |---|---|---|
 | Run 6 | `reports/run06_table.md`, `reports/figs/run06/` | `python scripts/run06_mech.py results/run06_mech reports/figs/run06` |
 | Run 7 | `reports/run07_table.md`, `reports/figs/run07/` | `python scripts/run07_capacity.py results/run06_mech results/run07a_width results/run07b_signum reports/figs/run07` |
+| Compute accounting | `reports/flops_table.md`, `reports/figs/flops/` | `python scripts/flops.py results/run06_mech results/run07a_width reports/figs/flops` |
 | Run 8 | `reports/run08_table.md`, `reports/figs/run08/` | `python scripts/run08_cipher.py results/run08_cipher reports/figs/run08` |
 | Run 8, per-run plateau check | printed table | see the inline check in this section; criterion: accuracy on repeated letters of pool ciphers at least 0.9 |
 
