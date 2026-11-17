@@ -24,12 +24,18 @@ def run_id(c):
     m = "inf" if c["M"] == 0 else str(c["M"])
     tag = f"{c['opt']}_lr{c['lr']:g}_aux{c['aux_lr']:g}_wd{c['wd']:g}_M{m}_s{c['seed']}_p{c['pool_seed']}"
     tag += f"_L{c['n_layer']}D{c['n_embd']}H{c['n_head']}_d{c['d']}K{c['K']}_T{c['steps']}_B{c['batch']}_{c['sched']}"
+    if c.get("route", "all") != "all":
+        tag += f"_route{c['route']}"
+    if c["opt"] == "signum" and c.get("fro_match"):
+        tag += "_fm"
+    elif c.get("ns_steps", 5) != 5 or c.get("fro_match"):
+        tag += f"_ns{c['ns_steps']}" + ("fm" if c.get("fro_match") else "")
     return tag + (f"_{c['tag']}" if c["tag"] else "")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--opt", default="adamw", choices=["adamw", "muon", "signum", "sgdm"])
+    ap.add_argument("--opt", default="adamw", choices=["adamw", "muon", "signum", "sgdm", "adamw_fn"])
     ap.add_argument("--lr", type=float, default=1e-3, help="LR for block weight matrices")
     ap.add_argument("--aux_lr", type=float, default=1e-3, help="AdamW LR for all other parameters")
     ap.add_argument("--wd", type=float, default=0.0)
@@ -48,6 +54,10 @@ def main():
     ap.add_argument("--sched", default="const", choices=["const", "cosine"])
     ap.add_argument("--n_eval_log", type=int, default=60, help="log-spaced evals (plus every 1%%)")
     ap.add_argument("--n_ckpt", type=int, default=10)
+    ap.add_argument("--route", default="all", choices=["all", "attn", "mlp"], help="which block matrices get --opt; the rest get AdamW at --aux_lr")
+    ap.add_argument("--ns_steps", type=int, default=5, help="Muon Newton-Schulz iterations (0 = normalised momentum)")
+    ap.add_argument("--fro_match", action="store_true", help="Muon: rescale every update to full Muon's Frobenius norm")
+    ap.add_argument("--eval_pct", type=float, default=1.0, help="evaluate every this many percent of training (plus log-spaced)")
     ap.add_argument("--tag", default="")
     ap.add_argument("--out", default="results")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -65,7 +75,11 @@ def main():
     model = ICLTransformer(c["d"], c["K"], c["n_layer"], c["n_embd"], c["n_head"]).to(dev)
     c["n_params"] = sum(p.numel() for p in model.parameters())
     W0 = {n: p.detach().clone() for n, p in model.hidden_matrices().items()}
-    opt = Routed(model, c["opt"], c["lr"], c["aux_lr"], c["wd"])
+    opt = Routed(model, c["opt"], c["lr"], c["aux_lr"], c["wd"], route=c["route"], ns_steps=c["ns_steps"], fro_match=c["fro_match"])
+    hid = model.hidden_matrices()
+    prev = {n: p.detach().clone() for n, p in hid.items()}
+    is_attn = torch.tensor([n.split(".")[2] in ("q", "k", "v", "o") for n in hid], device=dev)
+    path_acc = torch.zeros(2, device=dev)   # cumulative Frobenius length of the weight path: [attn, mlp]
     pool = make_pool(c["d"], c["M"], c["pool_seed"])
     pool_dev = pool.to(dev) if pool is not None else None
     ev = EvalSet(c, pool, dev)
@@ -74,7 +88,7 @@ def main():
 
     T = c["steps"]
     evals = set(np.unique(np.geomspace(10, T, c["n_eval_log"]).astype(int)).tolist())
-    evals |= set(range(0, T + 1, max(1, T // 100)))
+    evals |= set(range(0, T + 1, max(1, int(T * c["eval_pct"] / 100))))
     ckpts = set(np.unique(np.geomspace(100, T, c["n_ckpt"]).astype(int)).tolist()) | {T}
     gen = torch.Generator(device=dev).manual_seed(1_000_003 * c["seed"] + 7)
     mf = open(os.path.join(od, "metrics.jsonl"), "w")
@@ -82,7 +96,8 @@ def main():
 
     for step in range(T + 1):
         if step in evals:
-            row = dict(step=step, train_loss=ema, elapsed=time.time() - t0, **evaluate(model, ev, W0))
+            row = dict(step=step, train_loss=ema, elapsed=time.time() - t0, path_attn=path_acc[0].item(), path_mlp=path_acc[1].item(),
+                       **evaluate(model, ev, W0))
             mf.write(json.dumps(row) + "\n")
             mf.flush()
         if step in ckpts:
@@ -101,6 +116,12 @@ def main():
         opt.zero_grad()
         loss.backward()
         opt.step()
+        with torch.no_grad():
+            d = torch.stack([(p - prev[n]).norm() for n, p in hid.items()])
+            path_acc[0] += d[is_attn].sum()
+            path_acc[1] += d[~is_attn].sum()
+            for n, p in hid.items():
+                prev[n].copy_(p)
         lv = loss.item() if step % 50 == 0 else None
         if lv is not None:
             if not math.isfinite(lv):

@@ -35,7 +35,7 @@ class EvalSet:
 
 
 def _spec(W):
-    s = torch.linalg.svdvals(W.float())
+    s = torch.linalg.svdvals(W.detach().float().cpu())
     p = s / s.sum()
     erank = math.exp(-(p * torch.log(p + 1e-12)).sum().item())
     srank = (s.pow(2).sum() / s[0].pow(2)).item()
@@ -84,7 +84,7 @@ def evaluate(model, ev, W0, n_attn=256):
     for n, W in model.hidden_matrices().items():
         a = _spec(W)
         b = _spec(W - W0[n])
-        spec[n.replace("blocks.", "").replace(".weight", "")] = [round(v, 5) for v in (*a, *b)]
-    out["spec"] = spec  # name: [srank, erank, s1, dsrank, derank, ds1]
+        spec[n.replace("blocks.", "").replace(".weight", "")] = [round(v, 5) for v in (*a, *b, (W - W0[n]).norm().item())]
+    out["spec"] = spec  # name: [srank, erank, s1, dsrank, derank, ds1, dfro]
     model.train()
     return out

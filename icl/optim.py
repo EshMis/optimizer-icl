@@ -25,11 +25,48 @@ def zeropower_via_newtonschulz5(G, steps=5):
     return X
 
 
+def muon_fro_target(shape):
+    m, n = shape
+    return min(m, n) ** 0.5 * max(1, m / n) ** 0.5
+
+
+class AdamFN(torch.optim.Optimizer):
+    """Control: Adam's update DIRECTION with Muon's update MAGNITUDE.
+
+    u = m_hat / (sqrt(v_hat) + eps) as in Adam, then each matrix's u is rescaled to the
+    Frobenius norm a Muon update of that shape has, and the step is lr * u. If memorisation
+    speed only tracks how far the weights move per step, this should land on Muon."""
+
+    def __init__(self, params, lr=0.005, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0):
+        super().__init__(params, dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay))
+
+    @torch.no_grad()
+    def step(self):
+        for g in self.param_groups:
+            b1, b2 = g["betas"]
+            for p in g["params"]:
+                if p.grad is None:
+                    continue
+                st = self.state[p]
+                if "m" not in st:
+                    st["m"], st["v"], st["t"] = torch.zeros_like(p), torch.zeros_like(p), 0
+                st["t"] += 1
+                st["m"].lerp_(p.grad, 1 - b1)
+                st["v"].mul_(b2).addcmul_(p.grad, p.grad, value=1 - b2)
+                mh = st["m"] / (1 - b1 ** st["t"])
+                vh = st["v"] / (1 - b2 ** st["t"])
+                u = mh / (vh.sqrt() + g["eps"])
+                u = u * (muon_fro_target(tuple(p.shape)) / (u.norm() + 1e-12))
+                if g["weight_decay"]:
+                    p.mul_(1 - g["lr"] * g["weight_decay"])
+                p.add_(u, alpha=-g["lr"])
+
+
 class Muon(torch.optim.Optimizer):
     def __init__(self, params, lr=0.02, momentum=0.95, nesterov=True, ns_steps=5, weight_decay=0.0,
-                 orthogonalize=True):
+                 orthogonalize=True, fro_match=False):
         super().__init__(params, dict(lr=lr, momentum=momentum, nesterov=nesterov, ns_steps=ns_steps,
-                                      weight_decay=weight_decay, orthogonalize=orthogonalize))
+                                      weight_decay=weight_decay, orthogonalize=orthogonalize, fro_match=fro_match))
 
     @torch.no_grad()
     def step(self):
@@ -49,8 +86,14 @@ class Muon(torch.optim.Optimizer):
                 U = torch.stack([u for _, u in items])
                 if g["orthogonalize"]:
                     U = zeropower_via_newtonschulz5(U, g["ns_steps"]) * max(1, shape[0] / shape[1]) ** 0.5
+                    if g["fro_match"]:
+                        # ns_steps knob: whatever the spectral shape, give every update the Frobenius
+                        # norm a fully orthogonalised update has (singular values 1 -> sqrt(min dim))
+                        U = U * (muon_fro_target(shape) / (U.float().norm(dim=(-2, -1), keepdim=True) + 1e-12)).to(U.dtype)
                 else:  # "signum" ablation: same momentum, elementwise sign instead of orthogonalisation
                     U = U.sign()
+                    if g["fro_match"]:
+                        U = U * (muon_fro_target(shape) / (U.float().norm(dim=(-2, -1), keepdim=True) + 1e-12)).to(U.dtype)
                 for (p, _), du in zip(items, U):
                     if g["weight_decay"]:
                         p.mul_(1 - g["lr"] * g["weight_decay"])
@@ -60,17 +103,26 @@ class Muon(torch.optim.Optimizer):
 class Routed:
     """Two optimizers behind one step()/zero_grad(), with a shared LR multiplier for schedules."""
 
-    def __init__(self, model, opt, lr, aux_lr, weight_decay=0.0, betas=(0.9, 0.999)):
+    def __init__(self, model, opt, lr, aux_lr, weight_decay=0.0, betas=(0.9, 0.999), route="all",
+                 ns_steps=5, fro_match=False):
         hidden = model.hidden_matrices()
+        if route == "attn":
+            hidden = {n: p for n, p in hidden.items() if n.split(".")[2] in ("q", "k", "v", "o")}
+        elif route == "mlp":
+            hidden = {n: p for n, p in hidden.items() if n.split(".")[2] in ("fc", "proj")}
+        elif route != "all":
+            raise ValueError(route)
         hid_ids = {id(p) for p in hidden.values()}
         rest = [p for p in model.parameters() if id(p) not in hid_ids]
         hp = list(hidden.values())
         if opt == "adamw":
             self.hidden = torch.optim.AdamW(hp, lr=lr, betas=betas, weight_decay=weight_decay)
+        elif opt == "adamw_fn":
+            self.hidden = AdamFN(hp, lr=lr, betas=betas, weight_decay=weight_decay)
         elif opt == "muon":
-            self.hidden = Muon(hp, lr=lr, weight_decay=weight_decay)
+            self.hidden = Muon(hp, lr=lr, weight_decay=weight_decay, ns_steps=ns_steps, fro_match=fro_match)
         elif opt == "signum":
-            self.hidden = Muon(hp, lr=lr, weight_decay=weight_decay, orthogonalize=False)
+            self.hidden = Muon(hp, lr=lr, weight_decay=weight_decay, orthogonalize=False, fro_match=fro_match)
         elif opt == "sgdm":
             self.hidden = torch.optim.SGD(hp, lr=lr, momentum=0.9, nesterov=True, weight_decay=weight_decay)
         else:
