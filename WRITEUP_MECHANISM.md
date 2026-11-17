@@ -28,8 +28,10 @@ under `scripts/` from saved metrics; see [Where each number comes from](#where-e
   directions recovers all of it.
 - **On a second task, letter-substitution ciphers,** Muon again memorises larger pools, and it
   also finds the in-context copy circuit far faster than AdamW, which often stays stuck on a
-  plateau. That plateau makes the cipher threshold comparison unreliable so far; a calibration
-  run (8b) is in progress.
+  plateau. With an unlimited pool and 30,000 steps, no AdamW run at any of three learning rates
+  learned the task, while every Muon run did within about 1,000 steps. A stuck model neither
+  memorises nor decodes, so the cipher threshold comparison waits on an easier puzzle (Run 8c,
+  in progress).
 
 ## Run 6: which ingredient of Muon's update, and in which block
 
@@ -233,11 +235,42 @@ That second point is new relative to the regression task, where both optimizers 
 in-context regression easily. On the cipher task Muon's orthogonalised updates help attention
 form the copy circuit, while the same updates help the MLP memorise.
 
-### Run 8b: calibration (running)
+### Run 8b: calibration on the unlimited pool
 
-To get a valid threshold comparison, Run 8b trains on the unlimited pool for 30,000 steps with
-3 seeds, at AdamW 3e-4, 1e-3 and 3e-3, Muon 0.005 and Muon-on-MLP, to find settings under which
-every seed escapes the plateau. The pool-size sweep will then be rerun at those settings.
+To find settings under which every seed escapes the plateau, Run 8b trained on the unlimited
+pool (a fresh cipher in every prompt, so only in-context decoding can lower the loss) for
+30,000 steps, twice Run 8's length, with 3 seeds. "Copy onset" is the first step at which
+accuracy on repeated letters of new ciphers passes 0.5; "gap to optimal" is the final
+cross-entropy on new letters minus the optimal decoder's.
+
+| Setting | Seeds that learned to copy | Copy onset | Accuracy on repeated letters at the end | Gap to optimal at the end |
+|---|---|---|---|---|
+| AdamW 3e-4 | 0 of 3 | never | 0.19 0.30 0.29 | +0.48 +0.42 +0.43 |
+| AdamW 1e-3 | 0 of 3 | never | 0.06 0.42 0.18 | +0.54 +0.41 +0.48 |
+| AdamW 3e-3 | 0 of 3 | never | 0.06 0.06 0.06 | +0.54 +0.54 +0.53 |
+| Muon on MLP only | 1 of 3 | 13,800 (one seed) | 0.37 0.19 0.68 | +0.39 +0.48 +0.22 |
+| Muon 0.005 | 3 of 3 | 1,008 1,008 1,155 | 1.00 0.80 1.00 | +0.00 +0.15 +0.00 |
+
+No AdamW setting learned the task in 30,000 steps. At 3e-3 the loss never left ln 16, the loss
+of a uniform guess, so that setting does not train at all. At 3e-4 and 1e-3 the models reached
+partial copying (accuracy 0.2 to 0.4, against 1.0 possible) and stayed there. Full Muon learned
+the task within about 1,000 steps in every seed, at least 30 times sooner. Muon on the MLP only,
+whose attention matrices are trained by AdamW, behaved like AdamW in two seeds and escaped late
+in the third.
+
+So on this task the optimizer matters more for learning the in-context algorithm than for
+memorising, and the effect comes from how attention is trained. Two caveats: only the block
+matrices' learning rate was varied for AdamW, with embeddings and the read-out at 3e-4 in every
+run, and a different schedule or warmup might rescue AdamW.
+
+### Run 8c: an easier puzzle, and Muon on attention only (running)
+
+Run 8c repeats the calibration with an 8-letter alphabet and 16 pairs per prompt, where the
+plateau should be shorter, for AdamW 3e-4 and 1e-3, Muon, Muon on attention only and Muon on
+the MLP only. It also runs Muon on attention only on the original 16-letter puzzle. If attention
+is where Muon's speed-up lives, Muon on attention only should learn the 16-letter puzzle as fast
+as full Muon. If AdamW learns the 8-letter puzzle in every seed, the pool-size comparison will
+be rerun there.
 
 ## Where each number comes from
 

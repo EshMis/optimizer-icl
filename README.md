@@ -69,8 +69,11 @@ play the roles of ridge and dMMSE.
   speed up memorisation in the MLP.
 - Where both optimizers fit their pool, Muon again memorises more (256 ciphers: alpha 0.57
   against 0.36).
+- With a fresh cipher in every prompt and 30,000 steps, **no AdamW run learned the task at
+  learning rates 3e-4, 1e-3 or 3e-3 (0 of 9), while every Muon run did, by step 1,155 (3 of
+  3).** Muon on the MLP only learned it in 1 of 3, at step 13,800.
 - Because stuck runs neither memorise nor decode, the cipher threshold is not yet a valid
-  comparison. A calibration (Run 8b) is running to find AdamW settings that escape the plateau.
+  comparison. Run 8c, in progress, tries an easier 8-letter puzzle and Muon on attention only.
 
 [`WRITEUP.md`](WRITEUP.md) explains the original experiment and each result in plain language,
 with figures and caveats. [`WRITEUP_MECHANISM.md`](WRITEUP_MECHANISM.md) does the same for
