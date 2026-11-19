@@ -59,7 +59,7 @@ letter-substitution ciphers.
 - Three seeds per setting in Run 6 and two per width in Run 7; every comparison above has the
   same sign in every seed.
 
-### A second task: in-context ciphers (Run 8, in progress)
+### A second task: in-context ciphers (Run 8)
 
 A hidden permutation of a 16-letter alphabet; the prompt shows 24 (plain, coded) letter pairs
 and the model predicts each coded letter. Repeated letters can be copied from the prompt; new
@@ -80,7 +80,8 @@ play the roles of ridge and dMMSE.
   16-letter puzzle and an easier 8-letter one), so Muon's speed-up here lives in attention.
   AdamW fails even the 8-letter puzzle.
 - Because AdamW cannot learn the task, the cipher threshold compares full Muon with Muon on
-  attention only, which differ only in the MLP (Run 8d, in progress).
+  attention only, which differ only in the MLP. **Muon on the MLP raises the threshold 2.8x**
+  (217 against 77 ciphers, 3 of 3 seeds), the same mechanism as in regression.
 
 [`WRITEUP.md`](WRITEUP.md) explains the original experiment and each result in plain language,
 with figures and caveats. [`WRITEUP_MECHANISM.md`](WRITEUP_MECHANISM.md) does the same for

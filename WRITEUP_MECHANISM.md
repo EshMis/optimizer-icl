@@ -34,9 +34,10 @@ under `scripts/` from saved metrics; see [Where each number comes from](#where-e
   plateau. With an unlimited pool and 30,000 steps, no AdamW run at any of three learning rates
   learned the task, while every Muon run did within about 1,000 steps. A stuck model neither
   memorises nor decodes. Muon on attention only learns the task as fast as full Muon (Run 8c),
-  which places this effect in attention, and AdamW fails even an easier 8-letter version. Run
-  8d (in progress) compares full Muon with Muon on attention only across pool sizes to test the
-  MLP memorisation effect on this task.
+  which places this effect in attention, and AdamW fails even an easier 8-letter version.
+  Comparing full Muon with Muon on attention only, which differ only in the MLP, Muon on the
+  MLP raises the cipher threshold 2.8x (217 against 77 ciphers, 3 of 3 seeds): the regression
+  mechanism holds on a second task.
 
 ## Run 6: which ingredient of Muon's update, and in which block
 
@@ -339,13 +340,35 @@ on attention only on the original 16-letter puzzle.
 On this task Muon's two effects therefore sit in different blocks: in attention it makes the
 in-context algorithm learnable, and in the MLP (Runs 6 and 7) it makes memorisation stronger.
 
-### Run 8d: does Muon on the MLP memorise more on the cipher task? (running)
+### Run 8d: Muon on the MLP memorises more on the cipher task too
 
-Because AdamW cannot learn the cipher task, an AdamW-against-Muon threshold is not available
-here. Run 8d instead compares two settings that both learn the task quickly and differ only in
-the MLP: full Muon, and Muon on attention only (MLP on AdamW 3e-4). The 16-letter puzzle, pools
-16 to 4,096 plus unlimited, 3 seeds, 15,000 steps. If the regression mechanism carries over,
-full Muon's threshold should be the higher one.
+AdamW cannot learn the cipher task, so Run 8d compares two settings that both learn it quickly
+and differ only in the MLP: full Muon, and Muon on attention only (MLP on AdamW 3e-4). The
+16-letter puzzle, pools 16 to 4,096 plus unlimited, 3 seeds, 15,000 steps. Every run used for
+the threshold fit its own ciphers (accuracy on repeated letters of pool ciphers at least 0.9).
+
+![alpha against pool size on the cipher task](reports/figs/run08d/cipher_vs_pool_size.png)
+
+| Pool size | alpha, Muon on attention only | alpha, full Muon |
+|---|---|---|
+| 16 | 0.80 | 0.84 |
+| 32 | 0.70 | 0.82 |
+| 64 | 0.55 | 0.77 |
+| 128 | 0.32 | 0.62 |
+| 256 | 0.10 | 0.46 |
+| 512 | 0.04 | 0.06 |
+
+| Setting | M* (ciphers) | log2 M* per seed |
+|---|---|---|
+| Muon on attention only | 77 | 6.47 5.93 6.43 |
+| Full Muon | 217 | 7.82 8.27 7.20 |
+
+Switching the MLP from AdamW to Muon raises the threshold by 1.48 doublings (2.8x), in 3 of 3
+seeds (+1.35, +2.34, +0.77). This is the Run 6 result on a second, discrete task: orthogonalised
+updates to the MLP make the model memorise larger pools before in-context learning wins.
+
+Together with Run 8c, the cipher task separates Muon's two effects cleanly. Muon on attention
+makes the in-context algorithm learnable at all; Muon on the MLP makes memorisation stronger.
 
 ## Where each number comes from
 
@@ -355,6 +378,7 @@ full Muon's threshold should be the higher one.
 | Run 7 | `reports/run07_table.md`, `reports/figs/run07/` | `python scripts/run07_capacity.py results/run06_mech results/run07a_width results/run07b_signum reports/figs/run07` |
 | Compute accounting | `reports/flops_table.md`, `reports/figs/flops/` | `python scripts/flops.py results/run06_mech results/run07a_width reports/figs/flops` |
 | Run 8 | `reports/run08_table.md`, `reports/figs/run08/` | `python scripts/run08_cipher.py results/run08_cipher reports/figs/run08` |
+| Run 8d | `reports/run08d_table.md`, `reports/figs/run08d/` | `python scripts/run08_cipher.py results/run08d_mlp reports/figs/run08d` |
 | Run 8, per-run plateau check | printed table | see the inline check in this section; criterion: accuracy on repeated letters of pool ciphers at least 0.9 |
 
 Run definitions are in `tasks/run06_mech_g*.txt`, `tasks/run07a_width.txt`,
