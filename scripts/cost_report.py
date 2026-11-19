@@ -25,7 +25,30 @@ def main():
     R = {(r["width"], r["setting"]): r for r in meta["results"]}
     Ws = sorted({r["width"] for r in meta["results"]})
     out = [f"Measured on {meta['device']}, PyTorch {meta['torch']}, batch 256 prompts of 32 tokens, "
-           f"32-bit floats (Newton-Schulz in bfloat16), median of {meta['steps']} timed steps.\n"]
+           f"32-bit floats (Newton-Schulz in bfloat16). Times are the median of "
+           f"{meta.get('repeats', 1)} independent measurements, each the median of {meta['steps']} timed steps.\n"]
+
+    out.append("## Everything per training step, in absolute units\n")
+    out.append("One training step = one batch of 256 prompts: the model's forward and backward pass, then "
+               "the optimizer update. \"Extra time\" is the optimizer update's time divided by the forward and "
+               "backward time: 10% means the update adds a tenth on top of the model's own work. Optimizer "
+               "memory is the state each optimizer keeps for the attention and MLP matrices. Peak GPU memory is "
+               "the most memory allocated at any point in a step: parameters, gradients, optimizer state, "
+               "activations and temporaries.\n")
+    out.append("| Width | Parameters | Optimizer | Forward + backward (ms) | Optimizer update (ms) | Update range over repeats (ms) | Extra time | "
+               "Forward + backward (GFLOPs) | Optimizer update (GFLOPs) | Optimizer memory (MB) | Peak GPU memory (GB) |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    for W in Ws:
+        for k in ORDER:
+            r = R[(W, k)]
+            peak = f"{r['peak_bytes'] / 1e9:.2f}" if "peak_bytes" in r else "-"
+            rng = r.get("ms_opt_range")
+            rng = f"{rng[0]:.2f} to {rng[1]:.2f}" if rng else "-"
+            out.append(f"| {W} | {r['n_params'] / 1e6:.1f}M | {LABEL[k]} | {r['ms_model']:.1f} | {r['ms_opt']:.2f} | {rng} | "
+                       f"{100 * r['ms_opt'] / r['ms_model']:.1f}% | {r['flops_model'] / 1e9:.1f} | "
+                       f"{r['flops_opt'] / 1e9:.2f} | {r['state_bytes'] / 1e6:.1f} | {peak} |")
+    out.append("\nGFLOPs are matrix products only, counted by PyTorch's FLOP counter. The element-wise work of "
+               "AdamW, Signum and SGD is not counted there (it reads 0.00) and shows up in their time instead.\n")
 
     out.append("## Time per training step (milliseconds)\n")
     out.append("Model = forward + backward. Optimizer = the step for the attention and MLP matrices. The AdamW "
@@ -83,8 +106,8 @@ def main():
         ax.spines[s].set_color(GRID)
     ax.tick_params(colors=MUTED)
     ax.legend(frameon=False, fontsize=9, loc="center left", bbox_to_anchor=(1.02, 0.5), labelcolor=INK)
-    fig.text(0.01, 0.01, f"{meta['device']}, median of {meta['steps']} steps; block matrices only. At width 64 the "
-             "fixed cost of launching each GPU operation dominates every step.", fontsize=7, color=MUTED)
+    fig.text(0.01, 0.01, f"{meta['device']}, median of {meta.get('repeats', 1)} x {meta['steps']} steps. Below width 512, Muon's update "
+             "is a ~3 ms floor from GPU launch overhead.", fontsize=7, color=MUTED)
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(os.path.join(d, "optimizer_overhead.png"), dpi=150, facecolor=fig.get_facecolor())
 

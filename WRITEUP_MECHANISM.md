@@ -29,9 +29,9 @@ under `scripts/` from saved metrics; see [Where each number comes from](#where-e
 - **Counting training compute (FLOPs) instead of steps,** Muon still memorises 2.5x to 6x
   sooner at every width, but its head start in learning the in-context algorithm shrinks with
   size and is gone at width 512.
-- **Measured on the GPU, Muon's step costs 8% to 12% more time than the model's forward and
-  backward pass** at widths 128 to 512 (AdamW: 2% to 3%), and needs half of AdamW's optimizer
-  memory.
+- **Measured on the GPU, Muon's update takes about 3 ms per step up to width 256 and 10 ms at
+  width 512** (24%, 9% and 12% of the model's forward and backward time at widths 128, 256 and
+  512; AdamW 1.5% to 3%), and keeps half of AdamW's optimizer memory.
 - **On a second task, letter-substitution ciphers,** Muon again memorises larger pools, and it
   also finds the in-context copy circuit far faster than AdamW, which often stays stuck on a
   plateau. With an unlimited pool and 30,000 steps, no AdamW run at any of three learning rates
@@ -243,40 +243,61 @@ width make the onset ratios a trend, not a precise estimate.
 
 ## Measured cost of each optimizer
 
-The FLOP counts above are analytic. `scripts/measure_cost.py` measures the real cost on the
-training model and data, one setting at a time on an RTX A6000: matrix-product FLOPs from
-PyTorch's FLOP counter, the time of each part of a step from CUDA timers (median of 200 steps),
-and the optimizer state memory. Full tables are in `reports/cost_table.md`.
+`scripts/measure_cost.py` measures the real cost on the training model and data, one setting
+at a time, on an RTX A6000. It was run three times on three idle GPUs. Each time is the
+median of the three runs, each run the median of 300 steps; the full table with ranges and
+all seven settings is in `reports/cost_table.md`.
+
+One training step is one batch of 256 prompts: a forward and backward pass through the model,
+then the optimizer update. The table gives each part in absolute units.
+
+- **Time (ms)** is measured on the GPU. The percentage column divides the optimizer update's
+  time by the forward and backward time: 12% means the update adds 12% on top of the model's
+  own work for that step.
+- **GFLOPs** are billions of arithmetic operations, counted by PyTorch's FLOP counter. It
+  counts matrix products only, so the element-wise work of SGD, AdamW and Signum reads 0.0
+  and appears in their time instead. Muon's update is matrix products, so its FLOPs are real.
+- **Optimizer memory (MB)** is the state each optimizer keeps for the attention and MLP
+  matrices. **Peak GPU memory (GB)** is the most memory in use at any point in a step:
+  parameters, gradients, optimizer state, activations and temporaries.
+
+| Width | Parameters | Optimizer | Forward + backward (ms) | Optimizer update (ms) | Update as % of forward + backward | Forward + backward (GFLOPs) | Optimizer update (GFLOPs) | Optimizer memory (MB) | Peak GPU memory (GB) |
+|---|---|---|---|---|---|---|---|---|---|
+| 64 | 0.4M | SGD with momentum | 9.3 | 0.30 | 3% | 21 | 0.0 | 2 | 0.30 |
+| 64 | 0.4M | AdamW | 9.2 | 0.66 | 7% | 21 | 0.0 | 3 | 0.31 |
+| 64 | 0.4M | Signum | 9.2 | 1.21 | 13% | 21 | 0.0 | 2 | 0.30 |
+| 64 | 0.4M | Muon | 9.3 | 3.42 | 37% | 21 | 0.6 | 2 | 0.30 |
+| 128 | 1.6M | SGD with momentum | 13.0 | 0.12 | 1% | 81 | 0.0 | 6 | 0.60 |
+| 128 | 1.6M | AdamW | 13.1 | 0.19 | 1% | 81 | 0.0 | 13 | 0.60 |
+| 128 | 1.6M | Signum | 13.1 | 0.36 | 3% | 81 | 0.0 | 6 | 0.60 |
+| 128 | 1.6M | Muon | 13.0 | 3.06 | 24% | 81 | 5.0 | 6 | 0.60 |
+| 256 | 6.3M | SGD with momentum | 29.7 | 0.40 | 1% | 317 | 0.0 | 25 | 1.20 |
+| 256 | 6.3M | AdamW | 29.7 | 0.66 | 2% | 317 | 0.0 | 50 | 1.23 |
+| 256 | 6.3M | Signum | 29.8 | 0.69 | 2% | 317 | 0.0 | 25 | 1.20 |
+| 256 | 6.3M | Muon | 29.9 | 2.83 | 9% | 317 | 40.3 | 25 | 1.20 |
+| 512 | 25.2M | SGD with momentum | 85.1 | 1.59 | 2% | 1,252 | 0.0 | 101 | 2.50 |
+| 512 | 25.2M | AdamW | 85.1 | 2.59 | 3% | 1,252 | 0.0 | 201 | 2.60 |
+| 512 | 25.2M | Signum | 84.7 | 1.96 | 2% | 1,252 | 0.0 | 101 | 2.50 |
+| 512 | 25.2M | Muon | 85.1 | 10.42 | 12% | 1,252 | 322.1 | 101 | 2.50 |
 
 ![extra time each optimizer adds per step](reports/figs/cost/optimizer_overhead.png)
 
-Optimizer time as a share of the model's forward and backward pass:
-
-| Optimizer | Width 64 | Width 128 | Width 256 | Width 512 | State memory per weight |
-|---|---|---|---|---|---|
-| SGD with momentum | 4.2% | 0.9% | 1.4% | 1.9% | 4 bytes |
-| AdamW | 7.4% | 1.5% | 2.2% | 3.1% | 8 bytes |
-| Signum | 12.9% | 2.7% | 2.3% | 2.3% | 4 bytes |
-| Muon, 0 Newton-Schulz steps | 21.0% | 4.6% | 3.7% | 3.7% | 4 bytes |
-| Muon, 2 Newton-Schulz steps | 28.9% | 6.2% | 6.2% | 7.4% | 4 bytes |
-| Muon (5 Newton-Schulz steps) | 36.0% | 8.0% | 9.5% | 12.2% | 4 bytes |
-
-Muon's measured Newton-Schulz FLOPs match the analytic count exactly (5.03 billion per step at
-width 128, 322 billion at width 512), as does the model's forward and backward pass (81.1
-against 80.6 billion at width 128).
-
-- **Muon costs 8% to 12% more time per step than the model itself at widths 128 to 512,**
-  against 2% to 3% for AdamW. Its share grows with width, as the analytic count predicts.
-- **Measured time grows more slowly than counted FLOPs** (12% of time against 26% of FLOPs at
-  width 512), because Newton-Schulz runs in bfloat16, which this GPU executes much faster
-  than the 32-bit model.
-- **Muon needs half of AdamW's optimizer memory** (one momentum buffer instead of two moment
-  estimates).
-- **At width 64 every optimizer looks expensive** because the model is so small that each step
-  is dominated by the fixed cost of launching each GPU operation, and Muon launches the most.
-  A second measurement with the CPU idle reproduced these numbers.
-- None of this changes the step-matched or FLOP-matched conclusions: Muon's 2x to 6x head start
-  in memorisation is far larger than its 8% to 12% cost per step.
+- **Muon's update takes about 3 ms per step at every width up to 256, then 10 ms at width 512.**
+  Below width 512 its time is set by the fixed cost of launching its many small GPU operations,
+  not by arithmetic. So relative to the model it is expensive for small models (37% at width
+  64, 24% at width 128) and cheaper for larger ones (9% at width 256, 12% at width 512).
+- **AdamW's update costs 1.5% to 3% at widths 128 to 512,** SGD and Signum about the same.
+- **Muon's extra arithmetic is 5 GFLOPs per step at width 128 and 322 GFLOPs at width 512,**
+  6% and 26% of the model's forward and backward pass. These measured counts match the analytic
+  count in the previous section exactly. Measured time grows more slowly than FLOPs because
+  Newton-Schulz runs in bfloat16, which this GPU executes much faster than the 32-bit model.
+- **Muon keeps half of AdamW's optimizer memory** (100 MB against 201 MB at width 512), one
+  momentum buffer instead of two moment estimates. The difference in peak GPU memory is small
+  (2.50 GB against 2.60 GB) because activations dominate it.
+- An earlier single measurement gave Muon 1.0 ms at width 128. All three repeats gave 3.1 ms,
+  so the single reading was the outlier and is not used.
+- None of this changes the conclusions: Muon's 2x to 6x head start in memorisation is far
+  larger than its extra cost per step.
 
 ## Run 8: a second task, letter-substitution ciphers
 

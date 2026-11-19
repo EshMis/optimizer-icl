@@ -8,7 +8,9 @@ For every width and optimizer setting, on one GPU, one setting at a time:
   - Time, by CUDA events: the model's forward + backward, the step of the optimizer under
     study (block matrices), and the AdamW step for everything else (the same in every setting).
     Median over timed steps after warm-up.
-  - Memory: bytes of optimizer state held for the block matrices.
+  - Memory: bytes of optimizer state held for the block matrices, model parameter bytes, and
+    peak GPU memory allocated during the timed steps (parameters, gradients, optimizer state,
+    activations and temporaries).
 
 usage: python scripts/measure_cost.py reports/figs/cost [--steps 200] [--widths 64 128 256 512]
 """
@@ -74,7 +76,9 @@ def measure(width, key, opt_name, lr, ns, fm, steps, dev):
         opt.aux.step()
     f_aux = fc.get_total_flops()
 
-    # time
+    # time (and peak GPU memory over the timed steps)
+    torch.cuda.synchronize()
+    torch.cuda.reset_peak_memory_stats()
     ev = lambda: torch.cuda.Event(enable_timing=True)
     t_model, t_hidden, t_aux = [], [], []
     for i in range(steps + 30):
@@ -84,11 +88,14 @@ def measure(width, key, opt_name, lr, ns, fm, steps, dev):
         torch.cuda.synchronize()
         if i >= 30:
             t_model.append(e0.elapsed_time(e1)); t_hidden.append(e1.elapsed_time(e2)); t_aux.append(e2.elapsed_time(e3))
+    peak = torch.cuda.max_memory_allocated()
     n_block = sum(p.numel() for p in model.hidden_matrices().values())
+    param_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
     return dict(width=width, setting=key, n_params=sum(p.numel() for p in model.parameters()), n_block=n_block,
                 flops_model=f_model, flops_opt=f_hidden, flops_aux=f_aux,
                 ms_model=float(np.median(t_model)), ms_opt=float(np.median(t_hidden)), ms_aux=float(np.median(t_aux)),
-                state_bytes=state_bytes(opt.hidden))
+                state_bytes=state_bytes(opt.hidden), aux_state_bytes=state_bytes(opt.aux),
+                param_bytes=param_bytes, peak_bytes=peak)
 
 
 def main():

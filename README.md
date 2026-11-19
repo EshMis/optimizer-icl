@@ -56,13 +56,47 @@ letter-substitution ciphers.
   sooner at every width. Its head start in learning in-context regression shrinks with width
   and is gone at width 512, so at that size its compute advantage goes entirely to
   memorisation (`scripts/flops.py`).
-- **Measured cost.** On an RTX A6000, Muon's optimizer step takes 8% to 12% of the time of the
-  model's forward and backward pass at widths 128 to 512, against 2% to 3% for AdamW, and
-  holds half of AdamW's optimizer memory. Its extra FLOPs (5 billion per step at width 128,
-  322 billion at width 512) match the analytic count (`scripts/measure_cost.py`,
-  `reports/cost_table.md`).
 - Three seeds per setting in Run 6 and two per width in Run 7; every comparison above has the
   same sign in every seed.
+
+### What each optimizer costs per training step (measured)
+
+One training step is one batch of 256 prompts: a forward and backward pass through the model,
+then the optimizer update. The table gives each part in absolute units.
+
+- **Time (ms)** is measured on the GPU. The percentage column divides the optimizer update's
+  time by the forward and backward time: 12% means the update adds 12% on top of the model's
+  own work for that step.
+- **GFLOPs** are billions of arithmetic operations, counted by PyTorch's FLOP counter. It
+  counts matrix products only, so the element-wise work of SGD, AdamW and Signum reads 0.0
+  and appears in their time instead. Muon's update is matrix products, so its FLOPs are real.
+- **Optimizer memory (MB)** is the state each optimizer keeps for the attention and MLP
+  matrices. **Peak GPU memory (GB)** is the most memory in use at any point in a step:
+  parameters, gradients, optimizer state, activations and temporaries.
+
+| Width | Parameters | Optimizer | Forward + backward (ms) | Optimizer update (ms) | Update as % of forward + backward | Forward + backward (GFLOPs) | Optimizer update (GFLOPs) | Optimizer memory (MB) | Peak GPU memory (GB) |
+|---|---|---|---|---|---|---|---|---|---|
+| 64 | 0.4M | SGD with momentum | 9.3 | 0.30 | 3% | 21 | 0.0 | 2 | 0.30 |
+| 64 | 0.4M | AdamW | 9.2 | 0.66 | 7% | 21 | 0.0 | 3 | 0.31 |
+| 64 | 0.4M | Signum | 9.2 | 1.21 | 13% | 21 | 0.0 | 2 | 0.30 |
+| 64 | 0.4M | Muon | 9.3 | 3.42 | 37% | 21 | 0.6 | 2 | 0.30 |
+| 128 | 1.6M | SGD with momentum | 13.0 | 0.12 | 1% | 81 | 0.0 | 6 | 0.60 |
+| 128 | 1.6M | AdamW | 13.1 | 0.19 | 1% | 81 | 0.0 | 13 | 0.60 |
+| 128 | 1.6M | Signum | 13.1 | 0.36 | 3% | 81 | 0.0 | 6 | 0.60 |
+| 128 | 1.6M | Muon | 13.0 | 3.06 | 24% | 81 | 5.0 | 6 | 0.60 |
+| 256 | 6.3M | SGD with momentum | 29.7 | 0.40 | 1% | 317 | 0.0 | 25 | 1.20 |
+| 256 | 6.3M | AdamW | 29.7 | 0.66 | 2% | 317 | 0.0 | 50 | 1.23 |
+| 256 | 6.3M | Signum | 29.8 | 0.69 | 2% | 317 | 0.0 | 25 | 1.20 |
+| 256 | 6.3M | Muon | 29.9 | 2.83 | 9% | 317 | 40.3 | 25 | 1.20 |
+| 512 | 25.2M | SGD with momentum | 85.1 | 1.59 | 2% | 1,252 | 0.0 | 101 | 2.50 |
+| 512 | 25.2M | AdamW | 85.1 | 2.59 | 3% | 1,252 | 0.0 | 201 | 2.60 |
+| 512 | 25.2M | Signum | 84.7 | 1.96 | 2% | 1,252 | 0.0 | 101 | 2.50 |
+| 512 | 25.2M | Muon | 85.1 | 10.42 | 12% | 1,252 | 322.1 | 101 | 2.50 |
+
+Muon's update takes about 3 ms per step up to width 256, where launching its many small GPU
+operations sets the time, and 10 ms at width 512. AdamW's takes 0.2 to 2.6 ms. Muon keeps half
+of AdamW's optimizer memory. Median of three measurements on an RTX A6000; full tables with
+ranges in `reports/cost_table.md` (`scripts/measure_cost.py`).
 
 ### A second task: in-context ciphers (Run 8)
 
