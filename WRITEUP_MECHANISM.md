@@ -29,6 +29,9 @@ under `scripts/` from saved metrics; see [Where each number comes from](#where-e
 - **Counting training compute (FLOPs) instead of steps,** Muon still memorises 2.5x to 6x
   sooner at every width, but its head start in learning the in-context algorithm shrinks with
   size and is gone at width 512.
+- **Measured on the GPU, Muon's step costs 8% to 12% more time than the model's forward and
+  backward pass** at widths 128 to 512 (AdamW: 2% to 3%), and needs half of AdamW's optimizer
+  memory.
 - **On a second task, letter-substitution ciphers,** Muon again memorises larger pools, and it
   also finds the in-context copy circuit far faster than AdamW, which often stays stuck on a
   plateau. With an unlimited pool and 30,000 steps, no AdamW run at any of three learning rates
@@ -238,6 +241,43 @@ Caveats: FLOPs are counted analytically, not measured, and Newton-Schulz runs in
 the reference implementation, which makes its real cost lower than counted here. Two seeds per
 width make the onset ratios a trend, not a precise estimate.
 
+## Measured cost of each optimizer
+
+The FLOP counts above are analytic. `scripts/measure_cost.py` measures the real cost on the
+training model and data, one setting at a time on an RTX A6000: matrix-product FLOPs from
+PyTorch's FLOP counter, the time of each part of a step from CUDA timers (median of 200 steps),
+and the optimizer state memory. Full tables are in `reports/cost_table.md`.
+
+![extra time each optimizer adds per step](reports/figs/cost/optimizer_overhead.png)
+
+Optimizer time as a share of the model's forward and backward pass:
+
+| Optimizer | Width 64 | Width 128 | Width 256 | Width 512 | State memory per weight |
+|---|---|---|---|---|---|
+| SGD with momentum | 4.2% | 0.9% | 1.4% | 1.9% | 4 bytes |
+| AdamW | 7.4% | 1.5% | 2.2% | 3.1% | 8 bytes |
+| Signum | 12.9% | 2.7% | 2.3% | 2.3% | 4 bytes |
+| Muon, 0 Newton-Schulz steps | 21.0% | 4.6% | 3.7% | 3.7% | 4 bytes |
+| Muon, 2 Newton-Schulz steps | 28.9% | 6.2% | 6.2% | 7.4% | 4 bytes |
+| Muon (5 Newton-Schulz steps) | 36.0% | 8.0% | 9.5% | 12.2% | 4 bytes |
+
+Muon's measured Newton-Schulz FLOPs match the analytic count exactly (5.03 billion per step at
+width 128, 322 billion at width 512), as does the model's forward and backward pass (81.1
+against 80.6 billion at width 128).
+
+- **Muon costs 8% to 12% more time per step than the model itself at widths 128 to 512,**
+  against 2% to 3% for AdamW. Its share grows with width, as the analytic count predicts.
+- **Measured time grows more slowly than counted FLOPs** (12% of time against 26% of FLOPs at
+  width 512), because Newton-Schulz runs in bfloat16, which this GPU executes much faster
+  than the 32-bit model.
+- **Muon needs half of AdamW's optimizer memory** (one momentum buffer instead of two moment
+  estimates).
+- **At width 64 every optimizer looks expensive** because the model is so small that each step
+  is dominated by the fixed cost of launching each GPU operation, and Muon launches the most.
+  A second measurement with the CPU idle reproduced these numbers.
+- None of this changes the step-matched or FLOP-matched conclusions: Muon's 2x to 6x head start
+  in memorisation is far larger than its 8% to 12% cost per step.
+
 ## Run 8: a second task, letter-substitution ciphers
 
 ### The task
@@ -377,6 +417,7 @@ makes the in-context algorithm learnable at all; Muon on the MLP makes memorisat
 | Run 6 | `reports/run06_table.md`, `reports/figs/run06/` | `python scripts/run06_mech.py results/run06_mech reports/figs/run06` |
 | Run 7 | `reports/run07_table.md`, `reports/figs/run07/` | `python scripts/run07_capacity.py results/run06_mech results/run07a_width results/run07b_signum reports/figs/run07` |
 | Compute accounting | `reports/flops_table.md`, `reports/figs/flops/` | `python scripts/flops.py results/run06_mech results/run07a_width reports/figs/flops` |
+| Measured cost | `reports/cost_table.md`, `reports/figs/cost/` | `python scripts/measure_cost.py reports/figs/cost` then `python scripts/cost_report.py reports/figs/cost` |
 | Run 8 | `reports/run08_table.md`, `reports/figs/run08/` | `python scripts/run08_cipher.py results/run08_cipher reports/figs/run08` |
 | Run 8d | `reports/run08d_table.md`, `reports/figs/run08d/` | `python scripts/run08_cipher.py results/run08d_mlp reports/figs/run08d` |
 | Run 8, per-run plateau check | printed table | see the inline check in this section; criterion: accuracy on repeated letters of pool ciphers at least 0.9 |

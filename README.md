@@ -56,6 +56,11 @@ letter-substitution ciphers.
   sooner at every width. Its head start in learning in-context regression shrinks with width
   and is gone at width 512, so at that size its compute advantage goes entirely to
   memorisation (`scripts/flops.py`).
+- **Measured cost.** On an RTX A6000, Muon's optimizer step takes 8% to 12% of the time of the
+  model's forward and backward pass at widths 128 to 512, against 2% to 3% for AdamW, and
+  holds half of AdamW's optimizer memory. Its extra FLOPs (5 billion per step at width 128,
+  322 billion at width 512) match the analytic count (`scripts/measure_cost.py`,
+  `reports/cost_table.md`).
 - Three seeds per setting in Run 6 and two per width in Run 7; every comparison above has the
   same sign in every seed.
 
@@ -114,6 +119,7 @@ Runs 6 to 8.
 | `icl/cipher.py`, `icl/cipher_model.py` | cipher task: pool, sampler, exact in-context decoder and pool memoriser; token-in, softmax-out version of the model |
 | `train_cipher.py`, `sweep_cipher.py` | one cipher training run; many cipher runs sharing one GPU |
 | `scripts/run06_mech.py` | Run 6: threshold per optimizer variant, and the threshold against four clocks |
+| `scripts/measure_cost.py`, `scripts/cost_report.py` | measured FLOPs, time per step and optimizer memory for every optimizer and width, and their tables and figure |
 | `scripts/flops.py` | training FLOPs per step, and the threshold against cumulative compute across widths |
 | `scripts/run07_capacity.py` | Run 7: threshold against width, and Signum at Muon's step size |
 | `scripts/run08_cipher.py` | Run 8: cipher threshold, errors and training curves |
